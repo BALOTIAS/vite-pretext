@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vite-pretext A/B demo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="bar-title">
+        <strong>vite-pretext</strong>
+        <span>A/B layout-shift demo</span>
+      </div>
+      <div class="bar-controls">
+        <button id="btn-stream" type="button" data-active="0">▶ Start streaming</button>
+        <label class="bar-num" title="Stream interval (ms)">
+          interval
+          <input id="opt-interval" type="number" min="50" max="2000" step="10" value="220" />
+          ms
+        </label>
+        <button id="btn-burst" type="button">+20 cards</button>
+        <label class="bar-num" title="Cards added per burst">
+          burst
+          <input id="opt-burst" type="number" min="1" value="20" />
+        </label>
+        <button id="btn-mode" type="button" data-mode="lazy" title="Toggle streaming mode">
+          mode: <strong>lazy</strong>
+        </button>
+        <button id="btn-reflow" type="button">Toggle width</button>
+        <label class="bar-num">sans <select id="font-sans"></select></label>
+        <label class="bar-num">serif <select id="font-serif"></select></label>
+        <label class="bar-num">mono <select id="font-mono"></select></label>
+        <button id="btn-fps" type="button" class="btn-fps">Run FPS test</button>
+        <button id="btn-reset" type="button">Reset</button>
+      </div>
+      <div class="bar-stats">
+        <div class="bar-stats-row">
+          <span>Cards <strong id="stat-cards">0</strong></span>
+          <span>Last measure <strong id="stat-measure">— ms</strong></span>
+        </div>
+        <div class="bar-stats-row delta-row">
+          <span class="delta-label">Δ unexpected shift</span>
+          <strong id="stat-delta">0 px</strong>
+          <span class="ratio-label">×</span>
+          <strong id="stat-ratio">—</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="reading-ruler" aria-hidden="true">
+      <span>← reading anchor</span>
+    </div>
+
+    <main class="cols">
+      <section class="col col-with">
+        <header class="col-head">
+          <h2><span class="dot dot-on"></span> WITH pretext</h2>
+          <div class="col-stats">
+            <span>shift <strong id="shift-with">0 px</strong></span>
+            <span class="unexpected">unexpected <strong id="unexpected-with">0 px</strong></span>
+            <span>events <strong id="events-with">0</strong></span>
+            <span>max <strong id="max-with">0 px</strong></span>
+          </div>
+        </header>
+        <div class="feed" id="feed-with"></div>
+        <article class="lede-article" id="article-with"></article>
+      </section>
+      <section class="col col-without">
+        <header class="col-head">
+          <h2><span class="dot dot-off"></span> WITHOUT pretext</h2>
+          <div class="col-stats">
+            <span>shift <strong id="shift-without">0 px</strong></span>
+            <span class="unexpected">unexpected <strong id="unexpected-without">0 px</strong></span>
+            <span>events <strong id="events-without">0</strong></span>
+            <span>max <strong id="max-without">0 px</strong></span>
+          </div>
+        </header>
+        <div class="feed" id="feed-without"></div>
+        <article class="lede-article" id="article-without"></article>
+      </section>
+    </main>
+
+    <div id="fps-modal" class="fps-modal" hidden>
+      <div class="fps-modal-card">
+        <header class="fps-modal-head">
+          <div>
+            <h2>FPS test — layout-thrashing measurement</h2>
+            <p class="fps-modal-sub" id="fps-phase-label">preparing…</p>
+          </div>
+          <div class="fps-modal-counters">
+            <div class="fps-counter">
+              <span>countdown</span><strong id="fps-countdown">—</strong>
+            </div>
+            <div class="fps-counter">
+              <span>fps</span><strong id="fps-current">—</strong>
+            </div>
+            <div class="fps-counter">
+              <span>iterations</span><strong id="fps-iter">0</strong>
+            </div>
+            <button id="fps-btn-close" type="button" class="fps-btn-close" aria-label="Close">×</button>
+          </div>
+        </header>
+        <section class="fps-settings">
+          <div class="fps-settings-grid">
+            <label class="fps-field">
+              <span>Cards</span>
+              <input id="fps-opt-cards" type="number" min="1" step="5" value="50" />
+            </label>
+            <label class="fps-field">
+              <span>Phase duration (s)</span>
+              <input id="fps-opt-duration" type="number" min="2" max="60" step="1" value="10" />
+            </label>
+            <label class="fps-field">
+              <span>Sans</span>
+              <select id="fps-opt-sans"></select>
+            </label>
+            <label class="fps-field">
+              <span>Serif</span>
+              <select id="fps-opt-serif"></select>
+            </label>
+            <label class="fps-field">
+              <span>Mono</span>
+              <select id="fps-opt-mono"></select>
+            </label>
+            <label class="fps-field fps-field-checkbox">
+              <input id="fps-opt-lazy" type="checkbox" checked />
+              <span>Lazy load — half the markers fill mid-phase</span>
+            </label>
+          </div>
+          <button id="fps-btn-run" type="button" class="fps-btn-run">Run test</button>
+        </section>
+        <div class="fps-modal-stage">
+          <div class="fps-spinner-wrap">
+            <div id="fps-spinner" class="fps-spinner"></div>
+            <p class="fps-spinner-note">
+              rAF-driven spinner — visibly stutters when the main thread blocks
+            </p>
+          </div>
+          <div id="fps-content" class="fps-content"></div>
+        </div>
+        <div id="fps-results" class="fps-results" hidden>
+          <h3>Results</h3>
+          <div class="fps-result-row">
+            <span>WITHOUT pretext (offsetHeight read forces layout)</span>
+            <strong id="fps-result-without" class="bad">— fps</strong>
+          </div>
+          <div class="fps-result-row">
+            <span>WITH pretext (cached min-height, no layout)</span>
+            <strong id="fps-result-with" class="good">— fps</strong>
+          </div>
+          <div class="fps-result-row total">
+            <span>Speedup</span>
+            <strong id="fps-result-ratio">—</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

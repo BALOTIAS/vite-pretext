@@ -1,0 +1,72 @@
+{
+  "name": "vite-pretext",
+  "version": "0.0.1",
+  "description": "A zero-configuration Vite plugin that automatically eliminates text-based Cumulative Layout Shifts (CLS) and Main Thread blocking by delegating text measurement to a background Web Worker via @chenglou/pretext.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./orchestrator": {
+      "types": "./dist/orchestrator.d.ts",
+      "import": "./dist/orchestrator.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "import": "./dist/worker.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev:plugin": "tsup --watch",
+    "dev:example": "pnpm --filter vanilla-fps-demo dev",
+    "dev": "concurrently -n plugin,example -c blue,magenta \"pnpm dev:plugin\" \"pnpm dev:example\"",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:all": "pnpm build && pnpm -r build"
+  },
+  "keywords": [
+    "pretext",
+    "vite",
+    "vite-plugin",
+    "text-layout",
+    "text-measurement",
+    "line-breaking",
+    "typography",
+    "canvas",
+    "cls",
+    "performance"
+  ],
+  "homepage": "https://github.com/BALOTIAS/vite-pretext",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BALOTIAS/vite-pretext"
+  },
+  "author": "Matthias Balota",
+  "license": "MIT",
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "*"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "jsdom": "^29.0.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5"
+  },
+  "packageManager": "pnpm@10.24.0"
+}
