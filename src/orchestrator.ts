@@ -1,5 +1,19 @@
-import type { MeasureRequest, MeasureResponse, VitePretextConfig } from './types.js';
+import type {
+  MeasureRequest,
+  MeasureResponse,
+  Measurement,
+  OutputMode,
+  VitePretextConfig,
+} from './types.js';
 import { resolveTargets } from './walk.js';
+import { autoLetterSpacing, readMarkerAttrs } from './attrs.js';
+import {
+  clearMeasurement,
+  getMeasurement,
+  observe,
+  observeAll,
+  recordMeasurement,
+} from './measurements.js';
 
 const DEFAULT_CONFIG: VitePretextConfig = {
   fallbacks: {
@@ -7,13 +21,20 @@ const DEFAULT_CONFIG: VitePretextConfig = {
     fontSize: '16px',
     lineHeight: '1.5',
   },
+  applyStyles: true,
 };
 
 const config: VitePretextConfig = window.__VITE_PRETEXT_CONFIG__ ?? DEFAULT_CONFIG;
 
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 
-const pendingMap = new Map<string, Element>();
+interface PendingEntry {
+  el: Element;
+  mode: OutputMode;
+  applyStyles: boolean;
+}
+
+const pendingMap = new Map<string, PendingEntry>();
 const initialized = new WeakSet<Element>();
 let enabled = true;
 let completedCount = 0;
@@ -21,20 +42,39 @@ let lastMeasureMs = 0;
 let measureStart = 0;
 
 worker.addEventListener('message', (ev: MessageEvent<MeasureResponse>) => {
-  const { id, height } = ev.data;
-  const el = pendingMap.get(id);
+  const { id, height, lineCount, naturalWidth, maxLineWidth } = ev.data;
+  const entry = pendingMap.get(id);
   pendingMap.delete(id);
-  if (!el) return;
+  if (!entry) return;
   if (!enabled) return;
   completedCount++;
   lastMeasureMs = performance.now() - measureStart;
-  applyHeight(el as HTMLElement, height);
+  const measurement: Measurement = { height, lineCount, naturalWidth, maxLineWidth };
+  applyResult(entry.el as HTMLElement, entry.mode, entry.applyStyles, measurement);
+  recordMeasurement(entry.el, entry.mode, measurement);
 });
 
-function applyHeight(el: HTMLElement, height: number): void {
+function applyResult(el: HTMLElement, mode: OutputMode, applyStyles: boolean, m: Measurement): void {
   // queueMicrotask sidesteps SSR hydration mismatch (RFC edge case 3).
   queueMicrotask(() => {
-    el.style.minHeight = height + 'px';
+    if (applyStyles) {
+      if (mode === 'height' && m.height != null) {
+        el.style.minHeight = m.height + 'px';
+      } else if (mode === 'width' && m.naturalWidth != null) {
+        // Add the element's horizontal padding + border so width = content
+        // width plus chrome. Without this, padded buttons under-shrink.
+        const cs = window.getComputedStyle(el);
+        const chrome =
+          (parseFloat(cs.paddingLeft) || 0) +
+          (parseFloat(cs.paddingRight) || 0) +
+          (parseFloat(cs.borderLeftWidth) || 0) +
+          (parseFloat(cs.borderRightWidth) || 0);
+        el.style.width = Math.ceil(m.naturalWidth + chrome) + 'px';
+      }
+    }
+    // 'lines' and 'none' modes always skip inline styles; the same applies
+    // to any mode when applyStyles is false. CSS variables and the
+    // pretext:measured event are handled by recordMeasurement().
     el.classList.add('pretext-hydrated');
   });
 }
@@ -70,18 +110,25 @@ function processText(el: Element): void {
   }
 
   const style = window.getComputedStyle(el);
+  const attrs = readMarkerAttrs(el);
   const id =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random()}`;
-  pendingMap.set(id, el);
+  // Per-element override wins; otherwise inherit from the plugin config.
+  const applyStyles = attrs.applyStyles ?? config.applyStyles;
+  pendingMap.set(id, { el, mode: attrs.mode, applyStyles });
   measureStart = performance.now();
   const req: MeasureRequest = {
     id,
-    text: el.textContent ?? '',
+    text: attrs.text ?? el.textContent ?? '',
     font: buildFontString(style),
     lineHeight: resolveLineHeight(style),
     width: el.clientWidth,
+    mode: attrs.mode,
+    whiteSpace: attrs.whiteSpace,
+    wordBreak: attrs.wordBreak,
+    letterSpacing: attrs.letterSpacing ?? autoLetterSpacing(style),
   };
   worker.postMessage(req);
 }
@@ -133,11 +180,13 @@ window.__vitePretext = {
     if (enabled === value) return;
     enabled = value;
     if (!enabled) {
-      // Honest off: drop reserved min-heights so the column reflows like any
+      // Honest off: drop reserved styles so the page reflows like any
       // un-pretexted page. Re-enabling triggers a fresh measurement.
       document.querySelectorAll<HTMLElement>('.pretext-init').forEach((el) => {
         el.style.minHeight = '';
+        el.style.width = '';
         el.classList.remove('pretext-hydrated');
+        clearMeasurement(el);
       });
     } else {
       window.__vitePretext?.remeasureAll();
@@ -154,4 +203,7 @@ window.__vitePretext = {
       lastMeasureMs,
     };
   },
+  getMeasurement,
+  observe,
+  observeAll,
 };

@@ -526,6 +526,56 @@ body {
   border-left-color: rgba(148, 163, 184, 0.2);
 }
 
+/* chat card — mode="width" demo. Bubbles shrink-wrap to natural text width
+   via pretext (measureNaturalWidth), instead of taking the full row. */
+.card-chat {
+  padding: 0.85rem 1rem 1rem;
+  background: rgba(56, 189, 248, 0.04);
+}
+.card-chat::before {
+  content: 'data-pretext-mode="width"';
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.55rem;
+  opacity: 0.7;
+}
+.card-chat .chat-row {
+  margin-bottom: 0.55rem;
+}
+.card-chat .chat-row:last-child {
+  margin-bottom: 0;
+}
+.card-chat .chat-head {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+.card-chat .chat-head strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+.card-chat .chat-bubble {
+  display: inline-block;
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.18);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  /* width is set inline by pretext when mode=width;
+     fall back to fit-content (~max-content) when pretext is disabled. */
+  width: fit-content;
+  max-width: 100%;
+}
+/* On the WITHOUT side (no marker), the bubble is just an inline-block
+   that fits-content via CSS. The visual difference vs the WITH side is
+   subtle here — pretext is exact, fit-content is "approximately exact" —
+   but pretext stays accurate across font swaps and async fills, where
+   fit-content silently re-measures via forced layout. */
+
 /* outline card (deeply nested list) */
 .card-outline h3 {
   margin: 0 0 0.7rem;
@@ -855,6 +905,13 @@ body {
   outline: none;
   border-color: var(--accent);
   background: rgba(56, 189, 248, 0.08);
+}
+.fps-field-wide {
+  flex: 1 1 100%;
+}
+.fps-field-wide select {
+  max-width: none;
+  width: 100%;
 }
 .fps-field-checkbox {
   flex-direction: row;

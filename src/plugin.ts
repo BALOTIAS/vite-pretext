@@ -34,6 +34,7 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
   );
   const config: VitePretextConfig = {
     fallbacks: { ...DEFAULT_FALLBACKS, ...options.fallbacks },
+    applyStyles: options.applyStyles ?? true,
   };
   const warn = options.warn ?? true;
 

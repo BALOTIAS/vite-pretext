@@ -40,6 +40,40 @@ const INTER_PHASE_MS = 500;
 
 type Phase = 'idle' | 'without' | 'with';
 
+/**
+ * What the work loop does each frame. All three exercise the same
+ * write-then-read anti-pattern; the difference is which DOM property is
+ * read (and how many times) per element.
+ *
+ * - `virtual` — write paddingLeft + read offsetHeight. The canonical
+ *   virtual-list cost: one forced layout per element per frame.
+ * - `thrash` — interleaved writes + reads (paddingLeft → offsetHeight →
+ *   marginTop → offsetWidth). Two forced layouts per element per frame —
+ *   worst case for phase A.
+ * - `shrinkwrap` — write paddingLeft + read offsetWidth. Demonstrates
+ *   width-mode reads (chat bubbles, badges, button labels). The corpus
+ *   gets `data-pretext-mode="width"` so phase B can read the cached
+ *   `--pretext-natural-width` instead.
+ */
+type Workload = 'virtual' | 'thrash' | 'shrinkwrap';
+
+const WORKLOAD_LABEL: Record<Workload, string> = {
+  virtual: 'virtual list — one offsetHeight read / element',
+  thrash: 'layout thrash — interleaved height+width reads (worst case)',
+  shrinkwrap: 'auto-fit / shrink-wrap — read offsetWidth, mode="width" markers',
+};
+
+function populateWorkloadSelect(select: HTMLSelectElement, value: Workload = 'virtual'): void {
+  select.innerHTML = '';
+  for (const key of ['virtual', 'thrash', 'shrinkwrap'] as const) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = WORKLOAD_LABEL[key];
+    select.appendChild(opt);
+  }
+  select.value = value;
+}
+
 interface Phases {
   without: number;
   with: number;
@@ -50,6 +84,7 @@ interface FpsOptions {
   durationMs: number;
   lazy: boolean;
   selections: FontSelections;
+  workload: Workload;
 }
 
 const DEFAULT_OPTIONS: FpsOptions = {
@@ -57,6 +92,7 @@ const DEFAULT_OPTIONS: FpsOptions = {
   durationMs: 10000,
   lazy: true,
   selections: { ...DEFAULT_SELECTIONS },
+  workload: 'virtual',
 };
 
 function hasWebfont(sel: FontSelections): boolean {
@@ -109,6 +145,7 @@ export class FpsTest {
   private inputSans: HTMLSelectElement;
   private inputSerif: HTMLSelectElement;
   private inputMono: HTMLSelectElement;
+  private inputWorkload: HTMLSelectElement;
   private btnRun: HTMLButtonElement;
 
   constructor(modalRoot: HTMLElement) {
@@ -132,6 +169,8 @@ export class FpsTest {
     populateSelect(this.inputSans, 'sans');
     populateSelect(this.inputSerif, 'serif');
     populateSelect(this.inputMono, 'mono');
+    this.inputWorkload = modalRoot.querySelector('#fps-opt-workload') as HTMLSelectElement;
+    populateWorkloadSelect(this.inputWorkload);
     this.btnRun = modalRoot.querySelector('#fps-btn-run') as HTMLButtonElement;
 
     modalRoot.querySelector('#fps-btn-close')!.addEventListener('click', () => this.close());
@@ -165,6 +204,7 @@ export class FpsTest {
     this.inputSans.value = this.options.selections.sans;
     this.inputSerif.value = this.options.selections.serif;
     this.inputMono.value = this.options.selections.mono;
+    this.inputWorkload.value = this.options.workload;
   }
 
   private readOptionsFromInputs(): void {
@@ -178,6 +218,9 @@ export class FpsTest {
       serif: this.inputSerif.value,
       mono: this.inputMono.value,
     };
+    const w = this.inputWorkload.value;
+    this.options.workload =
+      w === 'thrash' || w === 'shrinkwrap' || w === 'virtual' ? (w as Workload) : 'virtual';
     // Mirror the clamped values back so the user sees what's actually used.
     this.applyOptionsToInputs();
   }
@@ -193,6 +236,7 @@ export class FpsTest {
     this.inputSans.disabled = disabled;
     this.inputSerif.disabled = disabled;
     this.inputMono.disabled = disabled;
+    this.inputWorkload.disabled = disabled;
     this.btnRun.disabled = disabled;
     if (disabled) this.btnRun.textContent = 'Running…';
     else this.setRunButtonLabel();
@@ -215,6 +259,16 @@ export class FpsTest {
     // styles already consume. This scopes the override to .fps-content and
     // does not touch the rest of the page.
     applyFontVars(this.content, this.options.selections);
+    // For the shrink-wrap workload, mark every leaf with mode="width" so
+    // pretext computes naturalWidth and exposes it as
+    // --pretext-natural-width. The warmup remeasureAll() picks it up.
+    for (const el of this.elements) {
+      if (this.options.workload === 'shrinkwrap') {
+        el.setAttribute('data-pretext-mode', 'width');
+      } else {
+        el.removeAttribute('data-pretext-mode');
+      }
+    }
     // Capture text on every other marker so the lazy schedule has something to
     // restore mid-phase. We capture even when lazy is off — toggling at run
     // time then becomes a no-op (we just don't schedule fills).
@@ -321,26 +375,78 @@ export class FpsTest {
     const elapsed = now - this.phaseStart;
 
     // Work loop: per-element write (layout-affecting) + read. In phase A the
-    // read forces synchronous layout (offsetHeight); in phase B the read is
-    // a pure inline-style lookup (style.minHeight) — no layout flush.
+    // reads force synchronous layout; in phase B the reads are inline-style
+    // / CSS-variable lookups — no layout flush. The exact pattern depends
+    // on the selected workload.
     let total = 0;
     const padding = (this.framesInPhase % 8) + 'px';
+    const margin = ((this.framesInPhase + 3) % 8) + 'px';
+    const els = this.elements;
+    const N = els.length;
     if (this.phase === 'without') {
-      for (let i = 0; i < this.elements.length; i++) {
-        const el = this.elements[i]!;
-        el.style.paddingLeft = padding;
-        total += el.offsetHeight;
+      switch (this.options.workload) {
+        case 'virtual': {
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += el.offsetHeight;
+          }
+          break;
+        }
+        case 'thrash': {
+          // Two write/read pairs per element → two forced layouts each.
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += el.offsetHeight;
+            el.style.marginTop = margin;
+            total += el.offsetWidth;
+          }
+          break;
+        }
+        case 'shrinkwrap': {
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += el.offsetWidth;
+          }
+          break;
+        }
       }
     } else {
-      for (let i = 0; i < this.elements.length; i++) {
-        const el = this.elements[i]!;
-        el.style.paddingLeft = padding;
-        const mh = el.style.minHeight;
-        total += mh ? parseFloat(mh) : 0;
+      switch (this.options.workload) {
+        case 'virtual': {
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += parseFloat(el.style.minHeight) || 0;
+          }
+          break;
+        }
+        case 'thrash': {
+          // Same write pattern as phase A; reads target two CSS variables
+          // (--pretext-line-count / --pretext-height) — both layout-free.
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += parseFloat(el.style.minHeight) || 0;
+            el.style.marginTop = margin;
+            total += parseFloat(el.style.getPropertyValue('--pretext-line-count')) || 0;
+          }
+          break;
+        }
+        case 'shrinkwrap': {
+          for (let i = 0; i < N; i++) {
+            const el = els[i]!;
+            el.style.paddingLeft = padding;
+            total += parseFloat(el.style.getPropertyValue('--pretext-natural-width')) || 0;
+          }
+          break;
+        }
       }
     }
-    if (total < 0) console.log(total);
-    this.iterations += this.elements.length;
+    if (Number.isNaN(total) || total < 0) console.log(total);
+    this.iterations += N;
 
     // Visible spinner: rAF-driven so it actually reflects main-thread health.
     this.spinAngle += 0.18;

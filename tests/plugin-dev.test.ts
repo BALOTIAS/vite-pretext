@@ -93,4 +93,24 @@ describe('plugin (dev)', () => {
     expect(html).toContain('"fontSize":"18px"');
     expect(html).toContain('"lineHeight":"1.7"');
   });
+
+  it('includes applyStyles=true in the inline config by default', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><p data-pretext>x</p></body></html>`,
+    });
+    const url = await startServer();
+    const html = await (await fetch(url + '/')).text();
+    expect(html).toContain('"applyStyles":true');
+  });
+
+  it('respects applyStyles: false in the plugin config', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><p data-pretext>x</p></body></html>`,
+    });
+    const url = await startServer([vitePretext({ applyStyles: false })]);
+    const html = await (await fetch(url + '/')).text();
+    expect(html).toContain('"applyStyles":false');
+  });
 });

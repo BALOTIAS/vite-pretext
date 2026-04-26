@@ -74,6 +74,29 @@ injects a tiny bootstrap that spawns a worker, measures matching elements
 off-thread, and applies `min-height` so they hold their shape during webfont
 swap, fluid resize, and async content fill.
 
+### Per-element configuration
+
+Every marker accepts optional attributes for finer control:
+
+```html
+<!-- mode: 'height' (default) | 'width' (shrink-wrap) | 'lines' (CSS var only) | 'none' -->
+<button data-pretext data-pretext-mode="width">Save changes</button>
+
+<!-- async-fill hint: measure THIS text, even though textContent is empty -->
+<p data-pretext data-pretext-text="Loading post body…"></p>
+
+<!-- forwarded to pretext.prepare() options -->
+<pre data-pretext data-pretext-white-space="pre-wrap">{{raw}}</pre>
+<p data-pretext data-pretext-word-break="keep-all" lang="ja">…</p>
+<h1 data-pretext data-pretext-letter-spacing="2">Tracked headline</h1>
+
+<!-- skip inline-style application for this element only — keep CSS vars + events -->
+<p data-pretext data-pretext-apply-styles="false">…</p>
+```
+
+`letter-spacing` is auto-detected from `getComputedStyle` when the attribute
+is absent — set the attribute only to override.
+
 ## How it helps
 
 Pretext earns its keep in three patterns:
@@ -119,18 +142,61 @@ vitePretext({
   // are exactly the calls pretext is designed to replace. Set `false` to
   // silence. Heuristic; may flag matches inside comments or strings.
   warn: true,
+  // Whether the orchestrator writes inline styles (min-height / width) to
+  // measured elements. Set false to keep CSS variables, events, and JS API
+  // but skip the inline-style application — apply heights yourself in CSS.
+  // Each marker can override per-element via data-pretext-apply-styles.
+  applyStyles: true,
 });
 ```
 
 ### `window.__vitePretext`
 
-Runtime hook for tooling and demos.
+Runtime hook for tooling, frameworks, and demos.
 
 ```ts
-window.__vitePretext.setEnabled(false);  // drop reserved heights, simulate "no plugin"
+// lifecycle
+window.__vitePretext.setEnabled(false);  // drop reserved styles, simulate "no plugin"
 window.__vitePretext.setEnabled(true);   // re-measure and re-apply
 window.__vitePretext.remeasureAll();     // force a re-measurement of every tracked element
 window.__vitePretext.getStats();         // { pendingCount, completedCount, lastMeasureMs }
+
+// per-element measurement access
+window.__vitePretext.getMeasurement(el);
+//  → { height, lineCount, naturalWidth?, maxLineWidth? } | undefined
+window.__vitePretext.observe(el, (m) => { /* fires on each measurement */ });
+window.__vitePretext.observeAll((el, m) => { /* every element, everywhere */ });
+```
+
+### CSS variables on every measured element
+
+The orchestrator writes inline CSS variables onto each measured element
+(unless `mode="none"`):
+
+```
+--pretext-mode: <height|width|lines|none>
+--pretext-height: <px, no unit>
+--pretext-line-count: <integer>
+--pretext-natural-width: <px>      /* mode="width" only */
+--pretext-max-line-width: <px>     /* mode="width" only */
+```
+
+Use them in CSS:
+
+```css
+.card[style*='--pretext-line-count: 1'] { font-size: 1.5rem; }
+.card { height: calc(var(--pretext-height) * 1px); }
+```
+
+### `pretext:measured` DOM event
+
+A bubbling `CustomEvent<Measurement>` dispatches on each marker after every
+measurement. Equivalent to `observe(el, ...)`:
+
+```ts
+el.addEventListener('pretext:measured', (e) => {
+  console.log(e.detail.lineCount);
+});
 ```
 
 ## Run the demo locally
@@ -150,7 +216,73 @@ pnpm dev      # opens http://localhost:5173/
 
 ## Requirements
 
-Vite 8+. Vite 6/7 fallback via ESBuild is on the roadmap.
+Vite 8+. Vite 7 backport is on the roadmap but not guaranteed. No support for Vite 6 or older.
+
+## Roadmap
+
+Rough priority, top → bottom. Ideas in sketch form; nothing committed.
+
+### Vite 7 backport
+
+The bootstrap-chunk emit pattern relies on Rolldown's `emitFile`; on Vite 7 I'd
+ship an ESBuild-based fallback behind a `configResolved` version branch.
+Broadens the addressable user base by a lot. Vite 6 stays out — too old.
+
+### Framework examples
+
+I'm planning more framework-specific demos to show how pretext can slot into real apps:
+* **React** (threaded comments with
+`react-virtuoso`)
+* **Vue** (e-commerce grid with reactive filters)
+* **Angular** (data dashboard with CDK virtual scroll via Analog)
+* **Svelte** (long-form reader with progressive sections)
+
+Each picks the use
+case where that framework's idioms put pressure on the surface pretext
+fixes.
+
+### Text-wrap `balance` mode
+
+A `data-pretext-mode="balance"` that binary-searches widths via pretext's
+`walkLineRanges` to find one that produces balanced-line output. Equivalent
+to CSS `text-wrap: balance` but works in older browsers and stays
+consistent across font swaps.
+
+### Build-time text-fit checks
+
+`data-pretext-max-lines="2"` / `data-pretext-max-width="240"` constraints
+verified at build time using pretext server-side. Fails the build with
+file/line diagnostics if any element overflows. Catches the "this German
+translation broke our header" class of bug before deploy. Needs
+`node-canvas` (or stable Node `OffscreenCanvas`) as an optional dep.
+
+### SSR / RSC integration
+
+Run pretext on the server during render, bake `min-height` into the HTML
+payload before it ever hits the browser. Eliminates the hydration-microtask
+delay entirely. Would ship as a separate `vite-pretext/ssr` entry rather
+than altering the runtime.
+
+### Rich-inline content
+
+Wrap `@chenglou/pretext/rich-inline` for layouts that mix prose with
+mentions, chips, inline code spans, and other atomic items. Useful for
+chat composers and rich text editors. Narrow but underserved use case.
+
+### Per-line manual layout
+
+Expose `walkLineRanges`, `layoutWithLines`, and the cursor APIs through
+the runtime hook so callers can drive line-level rendering themselves —
+animated per-line reveals, search-result highlighting, custom text
+effects. Probably stays out: anyone going this deep should call
+`@chenglou/pretext` directly.
+
+### WebGPU worker backend
+
+Speculative. Pretext's segment preparation could parallelise across
+compute shaders inside the worker. Plugin auto-detects WebGPU support and
+injects a `.wgsl`-accelerated worker variant. Far-future; only worth it
+if a benchmark proves the win.
 
 ## License
 

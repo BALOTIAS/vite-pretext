@@ -113,6 +113,16 @@ const PULL_QUOTES = [
   'The page that does not move is the page you remember.',
 ];
 
+const CHAT_MESSAGES: { user: string; msg: string }[] = [
+  { user: 'maya', msg: 'gm' },
+  { user: 'jules', msg: 'how was the deploy?' },
+  { user: 'mira', msg: 'rolled back — the unexpected-shift bucket was 8× higher in lazy mode' },
+  { user: 'sami', msg: 'so the hypothesis actually proved out' },
+  { user: 'kai', msg: 'next: try the width mode for the chat bubbles themselves' },
+  { user: 'devon', msg: 'right, then they shrink-wrap to text instead of taking the full row' },
+  { user: 'mira', msg: 'pretext.measureNaturalWidth gives you exactly the widest forced line — perfect for this' },
+];
+
 const THREADS: { user: string; time: string; comment: string; replies: { user: string; comment: string; nested?: { user: string; comment: string } }[] }[] = [
   {
     user: 'mira',
@@ -191,7 +201,7 @@ const OUTLINES: { title: string; sections: { label: string; items: string[] }[] 
   },
 ];
 
-const KINDS = ['lede', 'quote', 'list', 'table', 'figure', 'code', 'pull', 'thread', 'outline'] as const;
+const KINDS = ['lede', 'quote', 'list', 'table', 'figure', 'code', 'pull', 'thread', 'outline', 'chat'] as const;
 type Kind = (typeof KINDS)[number];
 
 let kindSeed = 0;
@@ -355,6 +365,27 @@ function buildOutline(): Built {
   };
 }
 
+function buildChat(): Built {
+  // Two messages per chat card so the difference between width-shrunk
+  // bubbles is visible at a glance. The bubbles use mode="width" — pretext
+  // shrink-wraps each bubble to its natural text width via
+  // measureNaturalWidth, so a one-word "gm" doesn't take a 600px row.
+  const tracked: HTMLElement[] = [];
+  const mkRow = () => {
+    const data = pickFrom(CHAT_MESSAGES);
+    const head = el('header', { class: 'chat-head' }, el('strong', {}, data.user));
+    const bubble = el(
+      'p',
+      { class: 'chat-bubble', 'data-pretext-mode': 'width' },
+      data.msg,
+    );
+    tracked.push(bubble);
+    return el('div', { class: 'chat-row' }, head, bubble);
+  };
+  const node = el('article', { class: 'card card-chat' }, mkRow(), mkRow(), mkRow());
+  return { node, tracked };
+}
+
 const BUILDERS: Record<Kind, () => Built> = {
   lede: buildLede,
   quote: buildQuote,
@@ -365,6 +396,7 @@ const BUILDERS: Record<Kind, () => Built> = {
   pull: buildPull,
   thread: buildThread,
   outline: buildOutline,
+  chat: buildChat,
 };
 
 export interface CardPair {
@@ -420,6 +452,7 @@ export function buildInitial(): CardPair[] {
   const order: Kind[] = [
     'lede',
     'quote',
+    'chat',
     'thread',
     'table',
     'pull',
