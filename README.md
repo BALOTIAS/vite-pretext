@@ -151,4 +151,4 @@ Vite 8+. Vite 6/7 fallback via ESBuild is on the roadmap.
 
 ## License
 
-MIT
+MIT, see [LICENSE.md](./LICENSE.md).
