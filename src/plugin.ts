@@ -39,6 +39,9 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
 
   let usesPretext = false;
   let isBuild = false;
+  // Captured from `configResolved`. Always has a trailing slash; defaults to
+  // '/' so the script src works on root deployments.
+  let baseUrl = '/';
 
   return {
     name: 'vite-pretext',
@@ -57,6 +60,7 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
     },
 
     configResolved(resolved) {
+      baseUrl = resolved.base; // Vite normalises this to end with '/'
       const major = Number.parseInt(viteVersion.split('.')[0] ?? '0', 10);
       if (major > 0 && major < 8) {
         resolved.logger.warn(
@@ -131,12 +135,14 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
         const shouldInject = isBuild ? usesPretext : true;
         if (!shouldInject) return;
 
-        let scriptSrc = BOOTSTRAP_PATH;
+        // Respect Vite's `base` config so the script tag works under
+        // subpath deployments (e.g. GitHub Pages at /<repo>/).
+        let scriptSrc = `${baseUrl}__vite-pretext-bootstrap.js`;
         if (isBuild && ctx.bundle) {
           const chunk = Object.values(ctx.bundle).find(
             (c) => c.type === 'chunk' && c.name === BOOTSTRAP_CHUNK_NAME,
           );
-          if (chunk) scriptSrc = `/${chunk.fileName}`;
+          if (chunk) scriptSrc = `${baseUrl}${chunk.fileName}`;
         }
 
         const configJson = JSON.stringify(config);

@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/vite-pretext.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/vite-pretext)
 [![npm downloads](https://img.shields.io/npm/dm/vite-pretext.svg?color=cb3837)](https://www.npmjs.com/package/vite-pretext)
 [![CI](https://github.com/BALOTIAS/vite-pretext/actions/workflows/ci.yml/badge.svg)](https://github.com/BALOTIAS/vite-pretext/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/demo-live-22c55e.svg?logo=githubpages&logoColor=white)](https://balotias.github.io/vite-pretext/)
 [![License: MIT](https://img.shields.io/npm/l/vite-pretext.svg?color=blue)](https://github.com/BALOTIAS/vite-pretext/blob/main/LICENSE.md)
 [![Vite](https://img.shields.io/badge/vite-%5E8.0.0-646cff.svg?logo=vite&logoColor=white)](https://vite.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -124,6 +125,9 @@ window.__vitePretext.getStats();         // { pendingCount, completedCount, last
 ```
 
 ## Demo
+
+**Live demo:** <https://balotias.github.io/vite-pretext/> — auto-deployed
+from `main`.
 
 A vanilla-HTML A/B comparison plus a layout-thrashing FPS benchmark lives in
 [`examples/vanilla-fps-demo`](./examples/vanilla-fps-demo). Two columns render

@@ -1,0 +1,70 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, but don't cancel an in-flight one —
+# we want every push to publish, even if a previous deploy is mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build demo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        # Version is read from "packageManager" in package.json.
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build plugin (so the example can resolve workspace types)
+        run: pnpm build
+
+      - name: Build example with project base path
+        # VITE_BASE_URL feeds vite.config.ts so Vite emits /vite-pretext/-
+        # prefixed asset URLs and our plugin uses the same base for the
+        # bootstrap script tag — site works under
+        # https://<owner>.github.io/vite-pretext/.
+        run: pnpm --filter vanilla-fps-demo build
+        env:
+          VITE_BASE_URL: /vite-pretext/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/vanilla-fps-demo/dist
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
