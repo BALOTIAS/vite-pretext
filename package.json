@@ -1,6 +1,6 @@
 {
   "name": "vite-pretext",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A zero-configuration Vite plugin that automatically eliminates text-based Cumulative Layout Shifts (CLS) and Main Thread blocking by delegating text measurement to a background Web Worker via @chenglou/pretext.",
   "type": "module",
   "main": "./dist/index.js",
