@@ -1,5 +1,12 @@
 # vite-pretext
 
+[![npm version](https://img.shields.io/npm/v/vite-pretext.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/vite-pretext)
+[![npm downloads](https://img.shields.io/npm/dm/vite-pretext.svg?color=cb3837)](https://www.npmjs.com/package/vite-pretext)
+[![CI](https://github.com/BALOTIAS/vite-pretext/actions/workflows/ci.yml/badge.svg)](https://github.com/BALOTIAS/vite-pretext/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/npm/l/vite-pretext.svg?color=blue)](https://github.com/BALOTIAS/vite-pretext/blob/main/LICENSE.md)
+[![Vite](https://img.shields.io/badge/vite-%5E8.0.0-646cff.svg?logo=vite&logoColor=white)](https://vite.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
 > Zero-configuration Vite plugin that eliminates text-based Cumulative Layout
 > Shift and main-thread layout blocking by delegating text measurement to a Web
 > Worker via [`@chenglou/pretext`](https://www.npmjs.com/package/@chenglou/pretext).
