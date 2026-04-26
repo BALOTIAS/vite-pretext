@@ -12,6 +12,15 @@
 > Shift and main-thread layout blocking by delegating text measurement to a Web
 > Worker via [`@chenglou/pretext`](https://www.npmjs.com/package/@chenglou/pretext).
 
+## Demo
+
+**[Try the live demo →](https://balotias.github.io/vite-pretext/)** — two
+columns render the same content side by side, only the left has
+`data-pretext`. Stream cards in lazy mode and the right column's *unexpected
+shift* counter climbs while the left stays at zero; the bundled FPS test
+reports the speedup of cached `style.minHeight` reads against
+forced-layout `offsetHeight` reads.
+
 ## Features
 
 - **Zero configuration.** Drop the plugin in, mark elements, ship.
@@ -124,30 +133,20 @@ window.__vitePretext.remeasureAll();     // force a re-measurement of every trac
 window.__vitePretext.getStats();         // { pendingCount, completedCount, lastMeasureMs }
 ```
 
-## Demo
+## Run the demo locally
 
-**Live demo:** <https://balotias.github.io/vite-pretext/> — auto-deployed
-from `main`.
-
-A vanilla-HTML A/B comparison plus a layout-thrashing FPS benchmark lives in
-[`examples/vanilla-fps-demo`](./examples/vanilla-fps-demo). Two columns render
-the same heterogeneous corpus (headings, blockquotes, tables, lists, threads
-with nested replies, outlines) — the left column has the marker, the right
-doesn't. Stream cards in lazy mode and the right column's *unexpected shift*
-counter climbs while the left's stays at zero. The FPS test runs a
-layout-thrashing work loop twice (with pretext disabled, then enabled) and
-reports the speedup.
-
-To run it locally:
+Source for the live demo lives at
+[`examples/vanilla-fps-demo`](./examples/vanilla-fps-demo). It renders the
+same heterogeneous corpus (headings, blockquotes, tables, lists, threads
+with nested replies, outlines) in both columns; the left has the marker,
+the right doesn't.
 
 ```sh
 git clone https://github.com/BALOTIAS/vite-pretext.git
 cd vite-pretext
 pnpm install
-pnpm dev
+pnpm dev      # opens http://localhost:5173/
 ```
-
-Open <http://localhost:5173/>.
 
 ## Requirements
 
