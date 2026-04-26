@@ -80,7 +80,8 @@ describe('plugin (warn)', () => {
     const offsetHeightWarning = warnings.find((w) => w.message.includes('offsetHeight'));
     expect(offsetHeightWarning).toBeDefined();
     expect(offsetHeightWarning?.message).toMatch(/forces synchronous layout/);
-    expect(offsetHeightWarning?.message).toMatch(/style\.minHeight/);
+    expect(offsetHeightWarning?.message).toMatch(/getMeasurement\(el\)\?\.height/);
+    expect(offsetHeightWarning?.message).toMatch(/--pretext-height/);
     expect(offsetHeightWarning?.loc?.file).toMatch(/main\.ts$/);
     // offsetHeight lives on line 2 of the source above.
     expect(offsetHeightWarning?.loc?.line).toBe(2);
@@ -138,5 +139,157 @@ describe('plugin (warn)', () => {
     const { warnings } = await runBuildAndCaptureWarnings();
     const offsetHeightWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
     expect(offsetHeightWarnings.length).toBe(3);
+  });
+
+  it('warns for scrollHeight, scrollWidth, and getClientRects()', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': `
+        const el = document.body;
+        const sh = el.scrollHeight;
+        const sw = el.scrollWidth;
+        const rs = el.getClientRects();
+        console.log(sh, sw, rs);
+      `,
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    expect(warnings.some((w) => w.message.includes('scrollHeight'))).toBe(true);
+    expect(warnings.some((w) => w.message.includes('scrollWidth'))).toBe(true);
+    expect(warnings.some((w) => w.message.includes('getClientRects()'))).toBe(true);
+  });
+
+  it('tailors the replacement hint per matched API', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': `
+        const el = document.body;
+        const h = el.clientHeight;
+        const w = el.clientWidth;
+        const r = el.getBoundingClientRect();
+        const t = el.offsetTop;
+        console.log(h, w, r, t);
+      `,
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const find = (api: string) => warnings.find((w) => w.message.includes(api));
+    // Height-axis read → height hint.
+    expect(find('clientHeight')?.message).toMatch(/getMeasurement\(el\)\?\.height/);
+    // Width-axis read → naturalWidth hint.
+    expect(find('clientWidth')?.message).toMatch(/getMeasurement\(el\)\?\.naturalWidth/);
+    // Rect read → both-axis hint (no `?.height` suffix; backticks ignored).
+    expect(find('getBoundingClientRect')?.message).toContain(
+      'getMeasurement(el)` for cached width and height',
+    );
+    // Position read → no pretext API; rAF fallback.
+    expect(find('offsetTop')?.message).toMatch(/requestAnimationFrame/);
+    expect(find('offsetTop')?.message).not.toMatch(/getMeasurement/);
+  });
+
+  it('mentions the @vite-pretext-ignore escape hatch in every warning', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': `console.log(document.body.offsetHeight);`,
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const w = warnings.find((w) => w.message.includes('offsetHeight'));
+    expect(w?.message).toMatch(/@vite-pretext-ignore/);
+  });
+
+  it('suppresses the warning when the same line carries // @vite-pretext-ignore', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': [
+        'const el = document.body;',
+        'const h = el.offsetHeight; // @vite-pretext-ignore intentional layout flush',
+        'console.log(h);',
+      ].join('\n'),
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const layoutWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
+    expect(layoutWarnings).toEqual([]);
+  });
+
+  it('suppresses the warning when the previous line carries // @vite-pretext-ignore', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': [
+        'const el = document.body;',
+        '// @vite-pretext-ignore — required for the focus-ring math',
+        'const h = el.offsetHeight;',
+        'console.log(h);',
+      ].join('\n'),
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const layoutWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
+    expect(layoutWarnings).toEqual([]);
+  });
+
+  it('does NOT suppress when a blank line sits between the ignore and the read', async () => {
+    // The check is "same line OR immediately preceding line" — a blank line
+    // breaks the adjacency. Guards against a future refactor that scans
+    // multiple lines back.
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': [
+        'const el = document.body;',
+        '// @vite-pretext-ignore',
+        '',
+        'const h = el.offsetHeight;',
+        'console.log(h);',
+      ].join('\n'),
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const layoutWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
+    expect(layoutWarnings.length).toBe(1);
+    expect(layoutWarnings[0]?.loc?.line).toBe(4);
+  });
+
+  it('only suppresses the immediately following match — not every later read', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': [
+        'const el = document.body;',
+        '// @vite-pretext-ignore',
+        'const a = el.offsetHeight;',
+        '',
+        'const b = el.offsetHeight;',
+        'console.log(a, b);',
+      ].join('\n'),
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const layoutWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
+    expect(layoutWarnings.length).toBe(1);
+    // The surviving warning is the second offsetHeight read on line 5.
+    expect(layoutWarnings[0]?.loc?.line).toBe(5);
+  });
+
+  it('supports /* @vite-pretext-ignore */ block-comment syntax on the same line', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><script type="module" src="/src/main.ts"></script></body></html>`,
+      'src/main.ts': [
+        'const el = document.body;',
+        'const h = /* @vite-pretext-ignore */ el.offsetHeight;',
+        'console.log(h);',
+      ].join('\n'),
+    });
+
+    const { warnings } = await runBuildAndCaptureWarnings();
+    const layoutWarnings = warnings.filter((w) => w.message.includes('offsetHeight'));
+    expect(layoutWarnings).toEqual([]);
   });
 });

@@ -201,6 +201,22 @@ const OUTLINES: { title: string; sections: { label: string; items: string[] }[] 
   },
 ];
 
+const CSS_VARS_HEADLINES = [
+  // Texts tuned to wrap differently across narrow vs wide column widths,
+  // so the line-count-driven CSS treatment changes visibly when you click
+  // "Toggle width" or resize.
+  'CSS variables driven by your live measurement',
+  'A heading that re-scales itself based on how it wraps',
+  'Three visual treatments, one selector trick',
+  'Lines you can style — without forcing layout once',
+];
+
+const CSS_VARS_TAGLINES = [
+  'Line count drives a CSS variable; CSS picks the size.',
+  'Resize the columns (or click Toggle width) to see typography respond.',
+  'No JS in the styling path — just attribute selectors on the inline style.',
+];
+
 const KINDS = ['lede', 'quote', 'list', 'table', 'figure', 'code', 'pull', 'thread', 'outline', 'chat'] as const;
 type Kind = (typeof KINDS)[number];
 
@@ -365,6 +381,22 @@ function buildOutline(): Built {
   };
 }
 
+function buildCssVars(): Built {
+  // Showcase: `data-pretext-mode="lines"` writes only the
+  // `--pretext-line-count` CSS variable to the heading. CSS attribute
+  // selectors on the inline style swap the typography per line count —
+  // 1-line headlines render bigger and accent-coloured; 2-line medium;
+  // 3+ smaller and muted. Resize-reactive and zero-JS in the styling path.
+  const headline = pickFrom(CSS_VARS_HEADLINES);
+  const tagline = pickFrom(CSS_VARS_TAGLINES);
+  const h2 = el('h2', { 'data-pretext-mode': 'lines' }, headline);
+  const p = el('p', { class: 'css-vars-tagline' }, tagline);
+  return {
+    node: el('article', { class: 'card card-css-vars' }, h2, p),
+    tracked: [h2, p],
+  };
+}
+
 function buildChat(): Built {
   // Two messages per chat card so the difference between width-shrunk
   // bubbles is visible at a glance. The bubbles use mode="width" — pretext
@@ -463,4 +495,17 @@ export function buildInitial(): CardPair[] {
     'list',
   ];
   return order.map((k) => buildPair(k));
+}
+
+/**
+ * The css-vars card is a feature *showcase* — its CSS treatment depends on a
+ * pretext-driven CSS variable that doesn't exist on a no-marker render. So
+ * it lives outside the A/B comparison columns, in its own banner, where the
+ * "WITHOUT" rendering would only confuse the comparison. Returns a single
+ * marked-up card; the orchestrator picks up the heading via the marker.
+ */
+export function buildCssVarsShowcase(): HTMLElement {
+  const card = buildCssVars().node;
+  card.setAttribute('data-pretext', '');
+  return card;
 }

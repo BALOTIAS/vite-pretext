@@ -357,6 +357,11 @@ export class FpsTest {
     this.lastFpsSample = now;
     this.framesInPhase = 0;
     this.framesSinceFpsSample = 0;
+    // Iterations are per-phase, matching countdown / fps semantics. Without
+    // this reset, phase 2 keeps incrementing from where phase 1 left off and
+    // the header reads as if the corpus is doing more work than it is.
+    this.iterations = 0;
+    this.iterCurrent.textContent = '0';
     if (phase === 'without') {
       this.phaseLabel.textContent = 'Phase 1 / 2 — WITHOUT pretext (offsetHeight read forces layout)';
       this.modal.dataset.phase = 'without';

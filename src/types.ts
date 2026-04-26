@@ -25,6 +25,22 @@ export interface VitePretextOptions {
    * `data-pretext-apply-styles="false"` or `="true"`.
    */
   applyStyles?: boolean;
+  /**
+   * Extend the built-in tag sets that drive the smart-marker walk.
+   * - `textLeaf`: extra tags that should be measured as leaves
+   *   (custom-element headings, framework atoms). Auto-promoted into the
+   *   block set so parents containing only custom leaves still walk in.
+   * - `block`: extra tags that count as block-level children, telling
+   *   their parent "this is a container, walk in."
+   *
+   * Always extends; never replaces. Tag names are case-insensitive. Avoid
+   * adding inline-by-default tags like `<a>`, `<button>`, `<label>` here —
+   * they break the common `<p>See <a>here</a></p>` measurement.
+   */
+  tags?: {
+    textLeaf?: string[];
+    block?: string[];
+  };
 }
 
 /**
@@ -83,6 +99,7 @@ export interface Measurement {
 export interface VitePretextConfig {
   fallbacks: Required<NonNullable<VitePretextOptions['fallbacks']>>;
   applyStyles: boolean;
+  tags: { textLeaf: string[]; block: string[] };
 }
 
 declare global {

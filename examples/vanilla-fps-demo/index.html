@@ -28,6 +28,7 @@
           mode: <strong>lazy</strong>
         </button>
         <button id="btn-reflow" type="button">Toggle width</button>
+        <button id="btn-measurements" type="button" data-active="0" title="Show pretext measurements via the pretext:measured event">📏 measurements</button>
         <label class="bar-num">sans <select id="font-sans"></select></label>
         <label class="bar-num">serif <select id="font-serif"></select></label>
         <label class="bar-num">mono <select id="font-mono"></select></label>
@@ -51,6 +52,18 @@
     <div class="reading-ruler" aria-hidden="true">
       <span>← reading anchor</span>
     </div>
+
+    <section class="showcase" aria-label="Lines-mode + CSS-variables showcase">
+      <header class="showcase-head">
+        <strong>Showcase</strong>
+        <span>
+          The card below renders only here — its typography is driven by
+          a pretext-only CSS variable. <em>Drag its bottom-right corner</em>
+          to watch the headline change treatment as its line count flips.
+        </span>
+      </header>
+      <div id="showcase-card"></div>
+    </section>
 
     <main class="cols">
       <section class="col col-with">

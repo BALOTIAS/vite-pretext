@@ -1,5 +1,6 @@
 import { mountLede } from './article.js';
-import { buildInitial } from './feed.js';
+import { buildCssVarsShowcase, buildInitial } from './feed.js';
+import { installMeasurementBadges } from './measurement-badges.js';
 import { Streamer } from './streamer.js';
 import type { StreamMode } from './streamer.js';
 import { ShiftMeter } from './shift-meter.js';
@@ -77,6 +78,12 @@ function mountInitial(): void {
 }
 
 mountInitial();
+
+// Lines-mode showcase strip — single card, lives outside the A/B comparison
+// because its CSS treatment depends on `--pretext-line-count`, which isn't
+// written on the no-marker side.
+const showcaseHost = document.getElementById('showcase-card');
+if (showcaseHost) showcaseHost.appendChild(buildCssVarsShowcase());
 
 const streamer = new Streamer(feedWith, feedWithout, meterWith, meterWithout);
 streamer.mode = 'lazy';
@@ -163,6 +170,17 @@ document.getElementById('btn-reflow')!.addEventListener('click', () => {
   root.classList.toggle('wide-cols');
 });
 
+// Measurement chips — listens to the `pretext:measured` event and stamps a
+// data-pt-info attribute on every measured element. CSS shows the chips
+// only when `.show-measurements` is on the root, so the toggle is a pure
+// CSS class flip.
+installMeasurementBadges();
+const measurementsBtn = document.getElementById('btn-measurements') as HTMLButtonElement;
+measurementsBtn.addEventListener('click', () => {
+  const on = root.classList.toggle('show-measurements');
+  measurementsBtn.dataset.active = on ? '1' : '0';
+});
+
 // Three independent font selects (sans / serif / mono). Each defaults to
 // system; switching to a Google font loads it via gstatic, awaits
 // document.fonts.ready, and triggers a pretext re-measure so min-heights
@@ -231,3 +249,14 @@ fpsBtn.addEventListener('click', () => {
     }
   });
 });
+
+// Deep-link `#fps` opens the FPS modal directly. Reuses the click handler so
+// streaming pause + onClose restore behave the same as a manual click. Listens
+// to hashchange so back/forward navigation works too.
+function openFpsFromHash(): void {
+  if (window.location.hash !== '#fps') return;
+  if (!fpsModal.hidden) return;
+  fpsBtn.click();
+}
+openFpsFromHash();
+window.addEventListener('hashchange', openFpsFromHash);

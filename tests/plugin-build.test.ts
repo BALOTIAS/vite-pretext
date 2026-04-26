@@ -95,6 +95,25 @@ describe('plugin (build)', () => {
     expect(String(html?.source)).toMatch(/vite-pretext-bootstrap-[\w-]+\.js/);
   });
 
+  it('emits a bootstrap chunk when only data-pretext-* variants appear (substring match)', async () => {
+    // The plugin's marker scan is a bare `code.includes('data-pretext')`
+    // substring check, so attribute variants like `data-pretext-mode`
+    // should also trigger the bootstrap — even with no plain `data-pretext`.
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body>
+  <button data-pretext-mode="width">Buy now</button>
+  <script type="module" src="/src/main.ts"></script>
+</body></html>`,
+      'src/main.ts': `console.log('hello')`,
+    });
+
+    const out = await runBuild();
+    expect(findBootstrapChunk(out)).toBeDefined();
+    const html = findHtml(out);
+    expect(String(html?.source)).toMatch(/vite-pretext-bootstrap-[\w-]+\.js/);
+  });
+
   it('emits NOTHING when the marker is absent from both HTML and source', async () => {
     fixture = await setupFixture({
       'index.html': `<!doctype html>
@@ -148,6 +167,27 @@ describe('plugin (build)', () => {
       vitePretext({ include: [/\.mjs$/, /\.[jt]sx?$/, /\.html$/] }),
     ]);
     expect(findBootstrapChunk(customOut)).toBeDefined();
+  });
+
+  it('forwards a custom tags option into the build output config', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body>
+  <p data-pretext>x</p>
+  <script type="module" src="/src/main.ts"></script>
+</body></html>`,
+      'src/main.ts': `export {};`,
+    });
+
+    const out = await runBuild([
+      vitePretext({
+        tags: { textLeaf: ['my-headline'], block: ['app-section'] },
+      }),
+    ]);
+    const html = findHtml(out);
+    const source = String(html?.source);
+    expect(source).toContain('"textLeaf":["my-headline"]');
+    expect(source).toContain('"block":["app-section"]');
   });
 
   it('hashes the bootstrap chunk filename in production output', async () => {

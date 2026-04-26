@@ -5,8 +5,9 @@ import type {
   OutputMode,
   VitePretextConfig,
 } from './types.js';
-import { resolveTargets } from './walk.js';
+import { buildTagSets, resolveTargets } from './walk.js';
 import { autoLetterSpacing, readMarkerAttrs } from './attrs.js';
+import { applyResult } from './apply.js';
 import {
   clearMeasurement,
   getMeasurement,
@@ -22,9 +23,11 @@ const DEFAULT_CONFIG: VitePretextConfig = {
     lineHeight: '1.5',
   },
   applyStyles: true,
+  tags: { textLeaf: [], block: [] },
 };
 
 const config: VitePretextConfig = window.__VITE_PRETEXT_CONFIG__ ?? DEFAULT_CONFIG;
+const tagSets = buildTagSets(config.tags);
 
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 
@@ -53,31 +56,6 @@ worker.addEventListener('message', (ev: MessageEvent<MeasureResponse>) => {
   applyResult(entry.el as HTMLElement, entry.mode, entry.applyStyles, measurement);
   recordMeasurement(entry.el, entry.mode, measurement);
 });
-
-function applyResult(el: HTMLElement, mode: OutputMode, applyStyles: boolean, m: Measurement): void {
-  // queueMicrotask sidesteps SSR hydration mismatch (RFC edge case 3).
-  queueMicrotask(() => {
-    if (applyStyles) {
-      if (mode === 'height' && m.height != null) {
-        el.style.minHeight = m.height + 'px';
-      } else if (mode === 'width' && m.naturalWidth != null) {
-        // Add the element's horizontal padding + border so width = content
-        // width plus chrome. Without this, padded buttons under-shrink.
-        const cs = window.getComputedStyle(el);
-        const chrome =
-          (parseFloat(cs.paddingLeft) || 0) +
-          (parseFloat(cs.paddingRight) || 0) +
-          (parseFloat(cs.borderLeftWidth) || 0) +
-          (parseFloat(cs.borderRightWidth) || 0);
-        el.style.width = Math.ceil(m.naturalWidth + chrome) + 'px';
-      }
-    }
-    // 'lines' and 'none' modes always skip inline styles; the same applies
-    // to any mode when applyStyles is false. CSS variables and the
-    // pretext:measured event are handled by recordMeasurement().
-    el.classList.add('pretext-hydrated');
-  });
-}
 
 function buildFontString(style: CSSStyleDeclaration): string {
   const family = style.fontFamily || config.fallbacks.fontFamily;
@@ -155,7 +133,7 @@ function initElement(el: Element): void {
 
 function discoverAll(): void {
   document.querySelectorAll<HTMLElement>('[data-pretext]').forEach((root) => {
-    for (const el of resolveTargets(root)) initElement(el);
+    for (const el of resolveTargets(root, tagSets)) initElement(el);
   });
 }
 

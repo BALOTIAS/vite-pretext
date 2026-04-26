@@ -16,17 +16,58 @@ const BOOTSTRAP_SOURCE = `import 'vite-pretext/orchestrator';\n`;
 const BOOTSTRAP_CHUNK_NAME = 'vite-pretext-bootstrap';
 
 // Layout-forcing DOM reads pretext is designed to replace. Each match emits
-// a build warning (with file/line/column) unless the user passes warn: false.
-// Heuristic — regex scan can flag matches inside comments or strings.
-const LAYOUT_API_PATTERNS: { regex: RegExp; api: string }[] = [
-  { regex: /\.offsetHeight\b/g, api: 'offsetHeight' },
-  { regex: /\.offsetWidth\b/g, api: 'offsetWidth' },
-  { regex: /\.offsetTop\b/g, api: 'offsetTop' },
-  { regex: /\.offsetLeft\b/g, api: 'offsetLeft' },
-  { regex: /\.clientHeight\b/g, api: 'clientHeight' },
-  { regex: /\.clientWidth\b/g, api: 'clientWidth' },
-  { regex: /\.getBoundingClientRect\s*\(/g, api: 'getBoundingClientRect()' },
+// a build warning (with file/line/column) unless the user passes warn: false
+// or annotates the line with `// @vite-pretext-ignore`. Heuristic — regex
+// scan can flag matches inside comments or strings.
+//
+// `replacement` names the cached pretext API the user should reach for
+// instead. Height-axis reads (offset/client/scroll-Height) replace cleanly
+// with `getMeasurement(el)?.height`; width-axis reads with
+// `getMeasurement(el)?.naturalWidth`; rectangle reads with the whole
+// `getMeasurement(el)` snapshot. Position reads (offsetTop/Left) have no
+// pretext equivalent — they get a generic rAF batching suggestion.
+const HEIGHT_HINT =
+  '`getMeasurement(el)?.height` (cached at `el.style.minHeight` and the `--pretext-height` CSS var)';
+const WIDTH_HINT =
+  '`getMeasurement(el)?.naturalWidth` (also exposed as the `--pretext-natural-width` CSS var)';
+const RECT_HINT = '`getMeasurement(el)` for cached width and height';
+const NO_PRETEXT_HINT =
+  'batching the read with `requestAnimationFrame` so layout is paid once per frame';
+
+const LAYOUT_API_PATTERNS: { regex: RegExp; api: string; replacement: string }[] = [
+  { regex: /\.offsetHeight\b/g, api: 'offsetHeight', replacement: HEIGHT_HINT },
+  { regex: /\.clientHeight\b/g, api: 'clientHeight', replacement: HEIGHT_HINT },
+  { regex: /\.scrollHeight\b/g, api: 'scrollHeight', replacement: HEIGHT_HINT },
+  { regex: /\.offsetWidth\b/g, api: 'offsetWidth', replacement: WIDTH_HINT },
+  { regex: /\.clientWidth\b/g, api: 'clientWidth', replacement: WIDTH_HINT },
+  { regex: /\.scrollWidth\b/g, api: 'scrollWidth', replacement: WIDTH_HINT },
+  { regex: /\.getBoundingClientRect\s*\(/g, api: 'getBoundingClientRect()', replacement: RECT_HINT },
+  { regex: /\.getClientRects\s*\(/g, api: 'getClientRects()', replacement: RECT_HINT },
+  { regex: /\.offsetTop\b/g, api: 'offsetTop', replacement: NO_PRETEXT_HINT },
+  { regex: /\.offsetLeft\b/g, api: 'offsetLeft', replacement: NO_PRETEXT_HINT },
 ];
+
+const IGNORE_MARKER = '@vite-pretext-ignore';
+
+/**
+ * True when the match site is annotated with `// @vite-pretext-ignore` on
+ * the matched line itself or on the immediately preceding line. We scan
+ * raw substrings (no JS parsing) — same heuristic posture as the warning
+ * scan; cheap and correct for typical comment placements.
+ */
+function isIgnored(code: string, matchIndex: number): boolean {
+  const lineStart = code.lastIndexOf('\n', matchIndex - 1) + 1;
+  const lineEndIdx = code.indexOf('\n', matchIndex);
+  const lineEnd = lineEndIdx === -1 ? code.length : lineEndIdx;
+  const currentLine = code.slice(lineStart, lineEnd);
+  if (currentLine.includes(IGNORE_MARKER)) return true;
+
+  if (lineStart === 0) return false;
+  const prevLineEnd = lineStart - 1;
+  const prevLineStart = code.lastIndexOf('\n', prevLineEnd - 1) + 1;
+  const previousLine = code.slice(prevLineStart, prevLineEnd);
+  return previousLine.includes(IGNORE_MARKER);
+}
 
 export function vitePretext(options: VitePretextOptions = {}): Plugin {
   const include = (options.include ?? DEFAULT_INCLUDE).map((p) =>
@@ -35,6 +76,10 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
   const config: VitePretextConfig = {
     fallbacks: { ...DEFAULT_FALLBACKS, ...options.fallbacks },
     applyStyles: options.applyStyles ?? true,
+    tags: {
+      textLeaf: options.tags?.textLeaf ?? [],
+      block: options.tags?.block ?? [],
+    },
   };
   const warn = options.warn ?? true;
 
@@ -46,6 +91,10 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
 
   return {
     name: 'vite-pretext',
+    // Run before esbuild's TS transformer so the warning scan sees raw
+    // source — important for the `// @vite-pretext-ignore` line comment,
+    // which esbuild would otherwise strip before we see the code.
+    enforce: 'pre',
 
     config(_userConfig, env) {
       isBuild = env.command === 'build';
@@ -87,19 +136,20 @@ export function vitePretext(options: VitePretextOptions = {}): Plugin {
       if (id.includes('node_modules')) return;
 
       if (warn) {
-        for (const { regex, api } of LAYOUT_API_PATTERNS) {
+        for (const { regex, api, replacement } of LAYOUT_API_PATTERNS) {
           regex.lastIndex = 0;
           let match: RegExpExecArray | null;
           while ((match = regex.exec(code)) !== null) {
+            if (isIgnored(code, match.index)) continue;
             const before = code.slice(0, match.index);
             const line = before.split('\n').length;
             const lastNl = before.lastIndexOf('\n');
             const column = match.index - (lastNl + 1);
             this.warn({
               message:
-                `\`${api}\` forces synchronous layout. Where possible, read the ` +
-                `pretext-cached \`el.style.minHeight\` instead. ` +
-                `Set \`warn: false\` in the plugin options to silence.`,
+                `\`${api}\` forces synchronous layout. Use ${replacement} instead. ` +
+                `Suppress per-site with \`// ${IGNORE_MARKER}\`, or globally with ` +
+                `\`warn: false\` in the plugin options.`,
               id,
               loc: { file: id, line, column },
             });

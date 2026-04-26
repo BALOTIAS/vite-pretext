@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { collectLeaves, hasBlockChild, resolveTargets } from '../src/walk.js';
+import {
+  BLOCK_TAGS,
+  TEXT_LEAF_TAGS,
+  buildTagSets,
+  collectLeaves,
+  hasBlockChild,
+  resolveTargets,
+} from '../src/walk.js';
 
 function html(markup: string): HTMLElement {
   // Wrapping in a host avoids weirdness around the parser hoisting <td>/<li>
@@ -201,5 +208,170 @@ describe('resolveTargets', () => {
   it('handles a single h2 leaf without descending', () => {
     const el = html('<h2>Just a heading</h2>');
     expect(resolveTargets(el)).toEqual([el]);
+  });
+});
+
+describe('default tag sets — extended HTML5 coverage', () => {
+  it('measures CAPTION inside a table', () => {
+    const el = html(`
+      <table>
+        <caption>Q4 metrics</caption>
+        <tbody><tr><td>1</td></tr></tbody>
+      </table>
+    `);
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toContain('CAPTION');
+  });
+
+  it('measures SUMMARY inside DETAILS', () => {
+    const el = html(`
+      <details>
+        <summary>Click to expand</summary>
+        <p>Body content</p>
+      </details>
+    `);
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toEqual(['SUMMARY', 'P']);
+  });
+
+  it('measures LEGEND inside FIELDSET', () => {
+    const el = html(`
+      <fieldset>
+        <legend>Account details</legend>
+        <p>Form description</p>
+      </fieldset>
+    `);
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toEqual(['LEGEND', 'P']);
+  });
+
+  it('walks into FORM as a block container', () => {
+    const el = html(`
+      <form>
+        <h2>Sign up</h2>
+        <p>Welcome.</p>
+      </form>
+    `);
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toEqual(['H2', 'P']);
+  });
+
+  it('walks into DIALOG as a block container', () => {
+    const el = html(`
+      <dialog>
+        <h1>Heads up</h1>
+        <p>Confirm action.</p>
+      </dialog>
+    `);
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toEqual(['H1', 'P']);
+  });
+
+  it('does NOT treat <a> or <button> as leaves (polymorphic — would break inline links)', () => {
+    expect(TEXT_LEAF_TAGS.has('A')).toBe(false);
+    expect(TEXT_LEAF_TAGS.has('BUTTON')).toBe(false);
+    expect(BLOCK_TAGS.has('A')).toBe(false);
+    expect(BLOCK_TAGS.has('BUTTON')).toBe(false);
+
+    // Regression: paragraph with inline link must still measure as a single
+    // <p>, not get walked into by a wayward <a> classification.
+    const el = html('<p>See <a href="#">here</a> for details.</p>');
+    expect(resolveTargets(el)).toEqual([el]);
+  });
+});
+
+describe('buildTagSets', () => {
+  it('returns the default sets when no extras are passed', () => {
+    const s = buildTagSets();
+    expect(s.textLeaf).toBe(TEXT_LEAF_TAGS);
+    expect(s.block).toBe(BLOCK_TAGS);
+  });
+
+  it('returns the default sets when extras are empty arrays', () => {
+    const s = buildTagSets({ textLeaf: [], block: [] });
+    expect(s.textLeaf).toBe(TEXT_LEAF_TAGS);
+    expect(s.block).toBe(BLOCK_TAGS);
+  });
+
+  it('uppercases custom tags to match the DOM tagName', () => {
+    const s = buildTagSets({ textLeaf: ['my-headline'] });
+    expect(s.textLeaf.has('MY-HEADLINE')).toBe(true);
+    expect(s.textLeaf.has('my-headline')).toBe(false);
+  });
+
+  it('auto-promotes custom textLeaf entries into the block set', () => {
+    // Why: an article containing only custom leaves still needs to walk in.
+    // Without auto-promotion, hasBlockChild(article) would be false and the
+    // whole article would be measured as one big leaf.
+    const s = buildTagSets({ textLeaf: ['my-headline'] });
+    expect(s.block.has('MY-HEADLINE')).toBe(true);
+  });
+
+  it('extends rather than replaces the built-ins', () => {
+    const s = buildTagSets({ textLeaf: ['x-leaf'], block: ['x-block'] });
+    // Built-ins still present.
+    expect(s.textLeaf.has('P')).toBe(true);
+    expect(s.block.has('ARTICLE')).toBe(true);
+    // Extras present.
+    expect(s.textLeaf.has('X-LEAF')).toBe(true);
+    expect(s.block.has('X-BLOCK')).toBe(true);
+  });
+
+  it('does not mutate the exported default sets', () => {
+    const before = TEXT_LEAF_TAGS.size;
+    buildTagSets({ textLeaf: ['my-headline'] });
+    expect(TEXT_LEAF_TAGS.size).toBe(before);
+    expect(TEXT_LEAF_TAGS.has('MY-HEADLINE')).toBe(false);
+  });
+});
+
+describe('resolveTargets with custom tag sets', () => {
+  it('measures a custom element as a leaf when added to textLeaf', () => {
+    const sets = buildTagSets({ textLeaf: ['my-headline'] });
+    const el = html(`
+      <article>
+        <my-headline>Title</my-headline>
+        <p>Body</p>
+      </article>
+    `);
+    const tags = resolveTargets(el, sets).map((e) => e.tagName);
+    expect(tags).toEqual(['MY-HEADLINE', 'P']);
+  });
+
+  it('without textLeaf opt-in, the custom element is silently dropped (regression baseline)', () => {
+    const el = html(`
+      <article>
+        <my-headline>Title</my-headline>
+        <p>Body</p>
+      </article>
+    `);
+    // Default sets — no opt-in. Article walks because of <p>; my-headline
+    // is neither leaf nor container; recursing into it finds nothing.
+    const tags = resolveTargets(el).map((e) => e.tagName);
+    expect(tags).toEqual(['P']);
+  });
+
+  it('walks into a custom container when added to block', () => {
+    const sets = buildTagSets({ block: ['app-section'] });
+    const el = html(`
+      <app-section>
+        <h2>Title</h2>
+        <p>Body</p>
+      </app-section>
+    `);
+    const tags = resolveTargets(el, sets).map((e) => e.tagName);
+    expect(tags).toEqual(['H2', 'P']);
+  });
+
+  it('an article of only custom leaves walks correctly (auto-promoted)', () => {
+    const sets = buildTagSets({ textLeaf: ['my-headline'] });
+    const el = html(`
+      <article>
+        <my-headline>One</my-headline>
+        <my-headline>Two</my-headline>
+      </article>
+    `);
+    const tags = resolveTargets(el, sets).map((e) => e.tagName);
+    expect(tags).toEqual(['MY-HEADLINE', 'MY-HEADLINE']);
   });
 });

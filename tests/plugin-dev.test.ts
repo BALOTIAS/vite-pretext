@@ -113,4 +113,29 @@ describe('plugin (dev)', () => {
     const html = await (await fetch(url + '/')).text();
     expect(html).toContain('"applyStyles":false');
   });
+
+  it('defaults the tags option to empty arrays', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><p data-pretext>x</p></body></html>`,
+    });
+    const url = await startServer();
+    const html = await (await fetch(url + '/')).text();
+    expect(html).toContain('"tags":{"textLeaf":[],"block":[]}');
+  });
+
+  it('forwards a custom tags option into the runtime config', async () => {
+    fixture = await setupFixture({
+      'index.html': `<!doctype html>
+<html><body><p data-pretext>x</p></body></html>`,
+    });
+    const url = await startServer([
+      vitePretext({
+        tags: { textLeaf: ['my-headline'], block: ['app-section'] },
+      }),
+    ]);
+    const html = await (await fetch(url + '/')).text();
+    expect(html).toContain('"textLeaf":["my-headline"]');
+    expect(html).toContain('"block":["app-section"]');
+  });
 });

@@ -214,6 +214,54 @@ body {
   padding: 0 0.4rem;
 }
 
+/* ---------- showcase strip (above the A/B comparison) ----------
+   Single feature showcase card that lives OUTSIDE the comparison columns.
+   Its content depends on a pretext-only CSS variable, so rendering it
+   in the no-marker column would just look broken — see card-css-vars
+   below for the full story. Uses --col-padding so the "Toggle width"
+   button visibly affects the headline's line count. */
+.showcase {
+  padding: 1.25rem var(--col-padding) 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(56, 189, 248, 0.04);
+  transition: padding 220ms ease;
+}
+.showcase-head {
+  max-width: 60ch;
+  margin: 0 auto 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.6rem;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--muted);
+}
+.showcase-head strong {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-size: 11px;
+}
+.showcase-head span {
+  flex: 1 1 320px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.showcase-head em {
+  font-style: normal;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  font-size: 11px;
+  background: rgba(15, 23, 42, 0.55);
+}
+#showcase-card {
+  width: min(60ch, 100%);
+  margin: 0 auto;
+}
+
 /* ---------- columns ---------- */
 .cols {
   display: grid;
@@ -575,6 +623,95 @@ body {
    subtle here — pretext is exact, fit-content is "approximately exact" —
    but pretext stays accurate across font swaps and async fills, where
    fit-content silently re-measures via forced layout. */
+
+/* css-vars card — mode="lines" demo. Pretext writes `--pretext-line-count`
+   to the heading; attribute selectors on the inline `style=` pick a
+   different typographic treatment per line count, with no JS in the
+   styling path. Visibly responds to "Toggle width" and viewport resize. */
+.card-css-vars {
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.1),
+    rgba(56, 189, 248, 0.04)
+  );
+  border-color: rgba(56, 189, 248, 0.35);
+  padding: 1.2rem 1.4rem 1.3rem;
+}
+/* Showcase variant: resizable so the user can directly drive the line count
+   without having to click "Toggle width" or shrink the browser window.
+   Native `resize: horizontal` requires non-visible overflow; we set hidden
+   because the card's own children stay within bounds. */
+.showcase .card-css-vars {
+  resize: horizontal;
+  overflow: hidden;
+  min-width: 220px;
+  max-width: 100%;
+  position: relative;
+}
+/* Custom corner indicator — the browser-native handle is a faint triangle
+   that's easy to miss. This stripe pattern in the bottom-right makes the
+   affordance obvious without overriding the native interaction. */
+.showcase .card-css-vars::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    rgba(56, 189, 248, 0.55) 50%,
+    rgba(56, 189, 248, 0.55) 60%,
+    transparent 60%,
+    transparent 70%,
+    rgba(56, 189, 248, 0.4) 70%,
+    rgba(56, 189, 248, 0.4) 80%,
+    transparent 80%
+  );
+  border-bottom-right-radius: 10px;
+}
+.card-css-vars::before {
+  content: 'data-pretext-mode="lines" · CSS-driven by --pretext-line-count';
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.65rem;
+  opacity: 0.75;
+}
+.card-css-vars h2 {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.18;
+  /* Default treatment for 3+ lines: compact and muted. */
+  font-size: clamp(1.05rem, 0.9rem + 0.4vw, 1.3rem);
+  color: var(--muted);
+  transition:
+    font-size 200ms ease,
+    color 200ms ease;
+}
+/* The orchestrator writes `--pretext-line-count: <N>;` inline; we match
+   the trailing semicolon so `: 1;` doesn't accidentally match `: 12;`. */
+.card-css-vars h2[style*='--pretext-line-count: 2;'] {
+  font-size: clamp(1.35rem, 1rem + 1vw, 1.85rem);
+  color: var(--fg);
+}
+.card-css-vars h2[style*='--pretext-line-count: 1;'] {
+  font-size: clamp(1.65rem, 1.2rem + 1.4vw, 2.4rem);
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.card-css-vars .css-vars-tagline {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
 
 /* outline card (deeply nested list) */
 .card-outline h3 {
@@ -1007,6 +1144,30 @@ body {
 
 .btn-fps {
   border-color: rgba(56, 189, 248, 0.4) !important;
+}
+
+/* ---------- measurement chips (pretext:measured event demo) ----------
+   When the user toggles `.show-measurements` on the root, every element
+   that has fired a `pretext:measured` event gets a tiny chip rendered via
+   ::after with the measurement payload. Pseudo-element content is *not*
+   part of `textContent`, so it can't contaminate pretext's own re-reads.
+   The data-pt-info attribute is stamped by `installMeasurementBadges`. */
+.show-measurements [data-pt-info]::after {
+  content: ' ' attr(data-pt-info);
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 4px;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ---------- pretext-init fade for the with-side ----------
