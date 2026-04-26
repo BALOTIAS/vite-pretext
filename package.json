@@ -31,7 +31,8 @@
     "typecheck": "tsc --noEmit && pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:all": "pnpm build && pnpm -r build"
+    "build:all": "pnpm build && pnpm -r build",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
   },
   "keywords": [
     "pretext",
@@ -52,11 +53,15 @@
   },
   "author": "Matthias Balota",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "peerDependencies": {
     "vite": "^8.0.0"
   },
   "dependencies": {
-    "@chenglou/pretext": "*"
+    "@chenglou/pretext": "^0.0.6"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.1",
