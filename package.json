@@ -1,6 +1,6 @@
 {
   "name": "vite-pretext",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A zero-configuration Vite plugin that measures text off the main thread in a Web Worker (via @chenglou/pretext): reserve height to stop layout shift, shrink-wrap to content width, style by wrapped line count, or read measurements with zero forced layout.",
   "type": "module",
   "main": "./dist/index.js",
