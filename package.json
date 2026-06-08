@@ -61,7 +61,7 @@
     "vite": "^8.0.0"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.6"
+    "@chenglou/pretext": "^0.0.7"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.1",
