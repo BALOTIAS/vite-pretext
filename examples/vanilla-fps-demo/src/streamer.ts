@@ -48,6 +48,15 @@ export class Streamer {
     this.timer = null;
   }
 
+  /** Stop streaming and empty both feeds. Used by the looping hero between
+   *  cycles so each replay starts from an empty stage. */
+  clear(): void {
+    this.stop();
+    this.feedWith.replaceChildren();
+    this.feedWithout.replaceChildren();
+    this.count = 0;
+  }
+
   burst(n: number): void {
     for (let i = 0; i < n; i++) this.tick();
   }
