@@ -26,11 +26,11 @@
 
       <div class="hero-stage">
         <div class="hero-col hero-with">
-          <header><span class="dot dot-on"></span> WITH pretext</header>
+          <div class="hero-col-label"><span class="dot dot-on"></span> WITH pretext</div>
           <div class="feed" id="hero-feed-with"></div>
         </div>
         <div class="hero-col hero-without">
-          <header><span class="dot dot-off"></span> WITHOUT pretext</header>
+          <div class="hero-col-label"><span class="dot dot-off"></span> WITHOUT pretext</div>
           <div class="feed" id="hero-feed-without"></div>
         </div>
       </div>
@@ -46,7 +46,7 @@
 
       <div class="hero-cta">
         <button type="button" id="copy-install" data-install="npm i -D vite-pretext">
-          <code>npm i -D vite-pretext</code> ⧉
+          <code>npm i -D vite-pretext</code> ⎘
         </button>
         <a class="btn" href="#proof">See the proof ↓</a>
       </div>
@@ -67,7 +67,7 @@
         <button type="button" id="pk-reset">Reset</button>
       </div>
 
-      <main class="cols">
+      <div class="cols">
         <section class="col col-with">
           <header class="col-head">
             <h3><span class="dot dot-on"></span> WITH</h3>
@@ -94,7 +94,7 @@
           <div class="feed" id="pk-feed-without"></div>
           <article class="lede-article" id="pk-article-without"></article>
         </section>
-      </main>
+      </div>
     </section>
 
     <!-- ③ OFF THE MAIN THREAD -->
@@ -122,11 +122,11 @@ export default { plugins: [vitePretext()] };</code></pre>
     </footer>
 
     <!-- FPS modal — markup consumed by FpsTest (scoped querySelector on #fps-modal) -->
-    <div id="fps-modal" class="fps-modal" hidden>
+    <div id="fps-modal" class="fps-modal" hidden role="dialog" aria-modal="true" aria-labelledby="fps-modal-title">
       <div class="fps-modal-card">
         <header class="fps-modal-head">
           <div>
-            <h2>FPS test — layout-thrashing measurement</h2>
+            <h2 id="fps-modal-title">FPS test — layout-thrashing measurement</h2>
             <p class="fps-modal-sub" id="fps-phase-label">preparing…</p>
           </div>
           <div class="fps-modal-counters">
