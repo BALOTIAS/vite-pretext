@@ -8,40 +8,34 @@
 [![Vite](https://img.shields.io/badge/vite-%5E8.0.0-646cff.svg?logo=vite&logoColor=white)](https://vite.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-> Zero-configuration Vite plugin that eliminates text-based Cumulative Layout
-> Shift and main-thread layout blocking by delegating text measurement to a Web
-> Worker via [`@chenglou/pretext`](https://www.npmjs.com/package/@chenglou/pretext).
+> Zero-configuration Vite plugin that measures text off the main thread in a
+> Web Worker (via [`@chenglou/pretext`](https://www.npmjs.com/package/@chenglou/pretext))
+> — reserve height to stop layout shift, shrink-wrap to content width, style by
+> wrapped line count, or just read the measurements with zero forced layout.
 
 ## Demo
 
-**[Try the live demo →](https://balotias.github.io/vite-pretext/)** — two
-columns render the same content side by side, only the left has
-`data-pretext`. Stream cards in lazy mode and the right column's
-*unexpected shift* counter climbs while the left stays at zero.
+**[Try the live demo →](https://balotias.github.io/vite-pretext/)** — the
+landing page renders the same content in two columns; only the left has
+`data-pretext`. Press **Start streaming** and the right column's
+*unexpected shift* counter climbs while the left holds at zero. The bundled
+**FPS test** ([`#fps`](https://balotias.github.io/vite-pretext/#fps) deep-links
+straight into it) benchmarks cached `style.minHeight` reads against
+forced-layout `offsetHeight` reads over a heterogeneous corpus.
 
-Specific things to look for:
+The **[Playground →](https://balotias.github.io/vite-pretext/playground.html)**
+shows the rest of the surface, each demo isolated:
 
-- **`lines`-mode showcase strip** (the cyan banner *above* the A/B
-  columns, not inside them). The heading is marked with
-  `data-pretext-mode="lines"`; CSS attribute selectors on the inline
-  `--pretext-line-count` swap the typographic treatment per line count
-  (1 line: large + accent; 2 lines: medium; 3+: muted). The card is
-  directly resizable — drag its bottom-right corner to flip the line
-  count and watch the headline re-style in real time, with no JS in the
-  styling path. Pulled out of the A/B comparison on purpose: the
-  treatment depends on a pretext-only CSS variable, so a no-marker
-  render has nothing to drive it.
-- **📏 Measurements toggle.** Flips a class on the root that surfaces
-  each WITH-side element's measurement (`naturalWidth · height ·
-  lineCount`) via the `pretext:measured` DOM event, rendered as inline
-  chips through a CSS pseudo-element so the chips don't contaminate
-  pretext's own re-reads of `textContent`.
-- **[FPS test →](https://balotias.github.io/vite-pretext/#fps)** — the
-  bundled benchmark runs two equal-length phases over a heterogeneous
-  corpus (paragraphs, tables, threads, outlines) and reports the fps
-  speedup of cached `style.minHeight` reads against forced-layout
-  `offsetHeight` reads. The `#fps` hash deep-links straight into the
-  modal.
+- **Output modes** — `height`, `width`, `lines`, and `none` side by side, so
+  you can see what each writes.
+- **`lines`-mode card** — a resizable heading whose typography re-styles by
+  wrapped line count via the inline `--pretext-line-count` variable, with no
+  JS in the styling path. Drag its corner to flip the line count and watch it
+  respond.
+- **Measurement chips** — each element's `naturalWidth · height · lineCount`,
+  surfaced through the `pretext:measured` DOM event.
+- **Webfont swap** — change a typeface and every marked element re-measures on
+  `document.fonts.ready`.
 
 ## Features
 
