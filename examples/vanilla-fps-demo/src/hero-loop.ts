@@ -64,14 +64,15 @@ export class HeroLoop {
   stop(): void {
     this.running = false;
     this.streamer.stop();
-    for (const t of [this.sampleTimer, this.cycleTimer, this.fillTimer]) {
-      if (t !== null) window.clearTimeout(t);
-    }
+    // cycleTimer is a setTimeout; sampleTimer + fillTimer are setInterval.
+    if (this.cycleTimer !== null) window.clearTimeout(this.cycleTimer);
+    if (this.fillTimer !== null) window.clearInterval(this.fillTimer);
     if (this.sampleTimer !== null) window.clearInterval(this.sampleTimer);
     this.sampleTimer = this.cycleTimer = this.fillTimer = null;
   }
 
   private runOnce(): void {
+    if (this.fillTimer !== null) return; // a fill is already in flight
     this.resetStage();
     this.els.status.textContent = 'streaming…';
     this.streamFill(() => {
@@ -110,7 +111,8 @@ export class HeroLoop {
           if (this.streamed >= FILL_CARDS) {
             if (this.fillTimer !== null) window.clearInterval(this.fillTimer);
             this.fillTimer = null;
-            window.setTimeout(onDone, FILL_SETTLE_MS);
+            // Stored as cycleTimer so stop() can cancel the settle wait too.
+            this.cycleTimer = window.setTimeout(onDone, FILL_SETTLE_MS);
           }
         }, STREAM_INTERVAL_MS);
       }),
