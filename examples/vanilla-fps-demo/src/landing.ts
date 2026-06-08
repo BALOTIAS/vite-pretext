@@ -4,23 +4,11 @@ import { Streamer } from './streamer.js';
 import type { StreamMode } from './streamer.js';
 import { ShiftMeter } from './shift-meter.js';
 import { FpsTest } from './fps-test.js';
-import { HeroLoop } from './hero-loop.js';
 import { applyFontVars, DEFAULT_SELECTIONS, loadFonts, type FontSelections } from './fonts.js';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
-// ── ① Hero loop ────────────────────────────────────────────────────────────
-const hero = new HeroLoop({
-  feedWith: $('hero-feed-with'),
-  feedWithout: $('hero-feed-without'),
-  scoreWith: $('hero-score-with'),
-  scoreWithout: $('hero-score-without'),
-  status: $('hero-status'),
-  replayBtn: $('hero-replay') as HTMLButtonElement,
-});
-hero.start();
-
-// ── ② Poke-it A/B (independent instance) ────────────────────────────────────
+// ── Click-to-start A/B demo (manual; lives below the install section) ────────
 const pkFeedWith = $('pk-feed-with');
 const pkFeedWithout = $('pk-feed-without');
 const pkMeterWith = new ShiftMeter();

@@ -16,47 +16,38 @@
       </nav>
     </header>
 
-    <!-- ① HERO — auto-looping A/B -->
+    <!-- Hero — pitch + install, no auto-playing demo -->
     <section class="hero" id="hero">
       <h1>Text that never jumps.</h1>
       <p class="hero-sub">
-        Worker-measured min-heights eliminate text layout shift. Drop in a
-        Vite plugin, add one attribute.
+        Measures text in a Web Worker before the browser paints — reserve its
+        height to stop layout shift, shrink-wrap to content width, or style by
+        line count. A Vite plugin; add one attribute.
       </p>
-
-      <div class="hero-stage">
-        <div class="hero-col hero-with">
-          <div class="hero-col-label"><span class="dot dot-on"></span> WITH pretext</div>
-          <div class="feed" id="hero-feed-with"></div>
-        </div>
-        <div class="hero-col hero-without">
-          <div class="hero-col-label"><span class="dot dot-off"></span> WITHOUT pretext</div>
-          <div class="feed" id="hero-feed-without"></div>
-        </div>
-      </div>
-
-      <div class="hero-scoreboard">
-        <span>unexpected shift</span>
-        <strong class="score-good" id="hero-score-with">0 px</strong>
-        <span class="vs">vs</span>
-        <strong class="score-bad" id="hero-score-without">0 px</strong>
-        <span class="hero-status" id="hero-status">…</span>
-        <button type="button" id="hero-replay" hidden>↻ Replay</button>
-      </div>
-
       <div class="hero-cta">
         <button type="button" id="copy-install" data-install="npm i -D vite-pretext">
           <code>npm i -D vite-pretext</code> ⎘
         </button>
-        <a class="btn" href="#proof">See the proof ↓</a>
+        <a class="btn" href="#demo">See it in action ↓</a>
       </div>
     </section>
 
-    <!-- ② POKE IT YOURSELF -->
-    <section class="proof" id="proof">
+    <!-- Get started -->
+    <section class="get-started" id="get-started">
+      <header class="section-head"><h2>Get started</h2></header>
+      <pre class="snippet"><code>npm i -D vite-pretext</code></pre>
+      <pre class="snippet"><code>// vite.config.ts
+import { vitePretext } from 'vite-pretext';
+export default { plugins: [vitePretext()] };</code></pre>
+      <pre class="snippet"><code>&lt;p data-pretext&gt;Long paragraph that reserves its height…&lt;/p&gt;</code></pre>
+      <a class="btn" href="playground.html">Explore every mode →</a>
+    </section>
+
+    <!-- See it in action — click-to-start A/B -->
+    <section class="proof" id="demo">
       <header class="section-head">
-        <h2>Poke it yourself</h2>
-        <p>Reproduce the shift with your own parameters. Same content both sides — only the left opts in.</p>
+        <h2>See it in action</h2>
+        <p>Press <strong>Start streaming</strong> below. Same content both sides — only the left opts in. Watch the WITHOUT column's <em>unexpected shift</em> climb while the left holds steady.</p>
       </header>
 
       <div class="proof-toolbar">
@@ -97,24 +88,13 @@
       </div>
     </section>
 
-    <!-- ③ OFF THE MAIN THREAD -->
+    <!-- Off the main thread -->
     <section class="fps-proof" id="fps-proof">
       <header class="section-head">
         <h2>Off the main thread</h2>
         <p>Reading <code>offsetHeight</code> after a write forces synchronous layout. Reading the pretext-cached <code>min-height</code> doesn't. The benchmark runs both and reports the fps speedup.</p>
       </header>
       <button type="button" id="btn-fps" class="btn-fps">Run FPS test</button>
-    </section>
-
-    <!-- ④ GET STARTED -->
-    <section class="get-started" id="get-started">
-      <header class="section-head"><h2>Get started</h2></header>
-      <pre class="snippet"><code>npm i -D vite-pretext</code></pre>
-      <pre class="snippet"><code>// vite.config.ts
-import { vitePretext } from 'vite-pretext';
-export default { plugins: [vitePretext()] };</code></pre>
-      <pre class="snippet"><code>&lt;p data-pretext&gt;Long paragraph that reserves its height…&lt;/p&gt;</code></pre>
-      <a class="btn" href="playground.html">Explore every mode →</a>
     </section>
 
     <footer class="site-foot">
