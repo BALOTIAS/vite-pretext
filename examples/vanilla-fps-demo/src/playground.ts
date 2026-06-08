@@ -27,8 +27,10 @@ noneEl.addEventListener('pretext:measured', (e) => {
 
 // ── measurement chips ────────────────────────────────────────────────────────
 installMeasurementBadges();
+// One batch of demo cards; distinct slices feed the two sections below.
+const pgCards = buildInitial();
 const chipsFeed = $('pg-chips-feed');
-for (const pair of buildInitial().slice(0, 5)) chipsFeed.appendChild(pair.withNode);
+for (const pair of pgCards.slice(0, 5)) chipsFeed.appendChild(pair.withNode);
 
 const chipsToggle = $('pg-chips-toggle') as HTMLButtonElement;
 chipsToggle.addEventListener('click', () => {
@@ -39,7 +41,7 @@ chipsToggle.addEventListener('click', () => {
 
 // ── webfont swap ─────────────────────────────────────────────────────────────
 const fontsFeed = $('pg-fonts-feed');
-for (const pair of buildInitial().slice(0, 4)) fontsFeed.appendChild(pair.withNode);
+for (const pair of pgCards.slice(5, 9)) fontsFeed.appendChild(pair.withNode);
 
 const fontSelects: Record<FontSlot, HTMLSelectElement> = {
   sans: $('pg-font-sans') as HTMLSelectElement,
