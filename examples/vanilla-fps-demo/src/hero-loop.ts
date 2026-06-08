@@ -73,6 +73,10 @@ export class HeroLoop {
 
   private runOnce(): void {
     if (this.fillTimer !== null) return; // a fill is already in flight
+    if (this.cycleTimer !== null) {
+      window.clearTimeout(this.cycleTimer); // cancel a pending settle-wait
+      this.cycleTimer = null;
+    }
     this.resetStage();
     this.els.status.textContent = 'streaming…';
     this.streamFill(() => {
