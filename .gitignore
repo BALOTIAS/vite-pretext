@@ -204,3 +204,6 @@ GEMINI.md
 plans/
 # Brainstorming visual companion (local mockups)
 .superpowers/
+
+# Playwright MCP browser-automation artifacts
+.playwright-mcp/

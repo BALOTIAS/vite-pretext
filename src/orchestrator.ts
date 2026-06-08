@@ -8,6 +8,7 @@ import type {
 import { buildTagSets, resolveTargets } from './walk.js';
 import { autoLetterSpacing, readMarkerAttrs } from './attrs.js';
 import { applyResult } from './apply.js';
+import { shouldSkipResize } from './resize-guard.js';
 import {
   clearMeasurement,
   getMeasurement,
@@ -39,8 +40,12 @@ interface PendingEntry {
 
 const pendingMap = new Map<string, PendingEntry>();
 const initialized = new WeakSet<Element>();
+// clientWidth at each element's last measurement — the input the resize guard
+// compares against to drop self-induced (width-stable) resize notifications.
+const lastMeasuredWidth = new WeakMap<Element, number>();
 let enabled = true;
 let completedCount = 0;
+let suppressedCount = 0;
 let lastMeasureMs = 0;
 let measureStart = 0;
 
@@ -82,10 +87,14 @@ const intersectionObserver = new IntersectionObserver((entries) => {
 
 function processText(el: Element): void {
   if (!enabled) return;
-  if (el.clientWidth === 0) {
+  const width = el.clientWidth;
+  if (width === 0) {
     intersectionObserver.observe(el);
     return;
   }
+  // Record the width we're about to measure at, so the resize guard can tell a
+  // genuine width change from a self-induced height-only resize.
+  lastMeasuredWidth.set(el, width);
 
   const style = window.getComputedStyle(el);
   const attrs = readMarkerAttrs(el);
@@ -102,7 +111,7 @@ function processText(el: Element): void {
     text: attrs.text ?? el.textContent ?? '',
     font: buildFontString(style),
     lineHeight: resolveLineHeight(style),
-    width: el.clientWidth,
+    width,
     mode: attrs.mode,
     whiteSpace: attrs.whiteSpace,
     wordBreak: attrs.wordBreak,
@@ -118,7 +127,17 @@ const resizeObserver = new ResizeObserver((entries) => {
   if (resizeRafId !== null) return;
   resizeRafId = requestAnimationFrame(() => {
     resizeRafId = null;
-    for (const el of resizeQueue) processText(el);
+    for (const el of resizeQueue) {
+      // Width-stable resizes are self-induced: a measurement-driven CSS rule
+      // changed the element's height (re-wrap), not its width. Re-measuring
+      // them would form a feedback loop, so drop them. Genuine width changes
+      // fall through and re-measure. See resize-guard.ts.
+      if (shouldSkipResize(lastMeasuredWidth.get(el), el.clientWidth)) {
+        suppressedCount++;
+        continue;
+      }
+      processText(el);
+    }
     resizeQueue.clear();
   });
 });
@@ -178,6 +197,7 @@ window.__vitePretext = {
     return {
       pendingCount: pendingMap.size,
       completedCount,
+      suppressedCount,
       lastMeasureMs,
     };
   },

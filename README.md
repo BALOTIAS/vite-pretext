@@ -257,7 +257,7 @@ Runtime hook for tooling, frameworks, and demos.
 window.__vitePretext.setEnabled(false);  // drop reserved styles, simulate "no plugin"
 window.__vitePretext.setEnabled(true);   // re-measure and re-apply
 window.__vitePretext.remeasureAll();     // force a re-measurement of every tracked element
-window.__vitePretext.getStats();         // { pendingCount, completedCount, lastMeasureMs }
+window.__vitePretext.getStats();         // { pendingCount, completedCount, suppressedCount, lastMeasureMs }
 
 // per-element measurement access
 window.__vitePretext.getMeasurement(el);
@@ -316,42 +316,42 @@ pnpm dev      # opens http://localhost:5173/
 
 Vite 8+. Vite 7 backport is on the roadmap but not guaranteed. No support for Vite 6 or older.
 
+## Stability: the CSS feedback loop
+
+Driving CSS off the measurement variables — most usefully
+`--pretext-line-count` in `lines` mode — lets you restyle an element by how
+its text wraps, with no JavaScript in the styling path. If those rules change
+a property that affects line breaking (`font-size`, `font-family`,
+`letter-spacing`, `line-height`), the naïve sequence "measure → restyle → the
+element re-wraps → re-measure" would loop forever at widths near a line-break
+boundary.
+
+pretext breaks this at the root. Its measurement depends only on an element's
+**width**; a restyle that changes line breaking changes the element's
+**height**, not its width. So the orchestrator ignores `ResizeObserver`
+notifications whose width is unchanged since the last measurement — they're
+self-induced and carry no new information. A genuine resize (the container
+actually gets wider or narrower) still re-measures, and the explicit triggers
+(`document.fonts.ready`, `remeasureAll()`) bypass the guard entirely. The
+number of dropped notifications is exposed as `getStats().suppressedCount`.
+
+The result: line-count-driven typography settles to one value per width and
+holds — at a boundary width the pinned value is whatever the element first
+measured there. Stable, never oscillating.
+
+- **Drive these freely** (won't re-trigger line breaking): `color`,
+  `text-decoration`, `font-weight` within the same metrics, `opacity`,
+  `transform`, `background`, `border`.
+- **Avoid driving these** from a measurement variable: anything that changes
+  the element's own **width** (`width`, horizontal `padding`, `max-width`).
+  Width-stable suppression can't see those, so they can still loop.
+- **One caveat:** if a theme toggle swaps `font-family` *without* changing any
+  element's width, the guard won't pick it up automatically — call
+  `__vitePretext.remeasureAll()` from the toggle handler.
+
 ## Roadmap
 
 Rough priority, top → bottom. Ideas in sketch form; nothing committed.
-
-### Measurement / CSS feedback-loop guard
-
-Open bug, reproducible in the lines-mode showcase strip on the live demo:
-when CSS rules driven by `--pretext-line-count` (or any measurement
-variable) change properties that affect line breaking — `font-size`,
-`font-family`, `letter-spacing`, `line-height`, padding/width — the
-sequence "measure → style updates → ResizeObserver fires → re-measure
-under the new style" can settle into a 2-cycle (line count flips between
-N and N±1 forever). It only manifests near the width where the
-measurement is on the boundary between line counts at the two
-treatments; stable widths converge cleanly.
-
-Possible fixes, in order of preference:
-
-1. **Oscillation detection in the orchestrator.** Track the last 2–3
-   measurements per element; if the next measurement would produce the
-   same value as a recent one *and* the intermediate value is different
-   (i.e. an A→B→A pattern), freeze the latest stable value and skip the
-   write until something else changes (font load, explicit
-   `remeasureAll`).
-2. **Two-pass measurement.** Measure under a "neutral" font baseline,
-   apply the CSS treatment, then a confirmation measurement to validate
-   stability. Heavier; only useful if the user's CSS rules can be
-   inspected.
-3. **Documentation only.** Document the limitation: line-count-driven
-   CSS rules should change properties that *don't* affect line
-   breaking — `color`, `text-decoration`, `font-weight` (within the
-   same metrics), opacity, transforms. Cheapest fix, doesn't address
-   the root cause.
-
-The showcase keeps the bug in plain sight on purpose for now — better
-than a perfectly-curated demo that hides the rough edge.
 
 ### Vite 7 backport
 

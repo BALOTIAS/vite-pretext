@@ -108,7 +108,13 @@ declare global {
     __vitePretext?: {
       setEnabled: (enabled: boolean) => void;
       remeasureAll: () => void;
-      getStats: () => { pendingCount: number; completedCount: number; lastMeasureMs: number };
+      getStats: () => {
+        pendingCount: number;
+        completedCount: number;
+        /** Width-stable ResizeObserver entries dropped by the feedback-loop guard. */
+        suppressedCount: number;
+        lastMeasureMs: number;
+      };
       /** Latest cached measurement for an element, or `undefined` before first measure. */
       getMeasurement: (el: Element) => Measurement | undefined;
       /** Subscribe to future measurements for one element. Returns an unsubscribe. */
