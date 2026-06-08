@@ -1,0 +1,85 @@
+name: Release
+
+# Release automation via release-please.
+#
+# Flow:
+#   1. Every push to main, release-please scans Conventional Commits since the
+#      last release and opens/updates a "release PR" that bumps the version in
+#      package.json and regenerates CHANGELOG.md.
+#   2. Merging that release PR makes release-please create the git tag + GitHub
+#      Release, and sets `release_created: true`.
+#   3. The `publish` job then re-verifies (build + typecheck + test) and
+#      publishes to npm with provenance.
+#
+# Why publish lives here (not in a separate tag-triggered workflow): tags
+# created by the default GITHUB_TOKEN do NOT trigger other workflows, so a
+# `on: push: tags` publish would silently never fire. Gating publish on the
+# release-please output is the robust pattern.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Prepare release PR / cut release
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: build + publish to npm
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for `npm publish --provenance`
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Set up pnpm
+        # Version is read from "packageManager" in package.json.
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 20 (with npm registry auth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build first so the workspace example typechecks against the freshly
+      # built dist/ (where the `Window.__vitePretext` declaration ships).
+      - name: Build plugin
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # publishConfig in package.json sets access: public + provenance: true.
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
