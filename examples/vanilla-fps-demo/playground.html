@@ -7,10 +7,77 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <header class="site-bar">
+      <strong class="brand">vite-pretext</strong>
+      <nav class="site-nav">
+        <a href="/index.html">← Landing</a>
+        <a href="https://github.com/BALOTIAS/vite-pretext">GitHub</a>
+        <a href="https://www.npmjs.com/package/vite-pretext">npm</a>
+      </nav>
+    </header>
+
     <main class="page">
       <h1>Playground</h1>
-      <p>Coming together task by task.</p>
+      <p class="page-sub">Every output mode and runtime hook, isolated. Resize the window or drag the resizable cards to see measurements react.</p>
+
+      <!-- Modes -->
+      <section class="pg-section">
+        <h2>Output modes</h2>
+        <p>Each marker writes one kind of output, chosen via <code>data-pretext-mode</code>.</p>
+        <div class="pg-grid">
+          <div class="pg-demo">
+            <div class="pg-label">height (default) — reserves <code>min-height</code></div>
+            <p data-pretext>The browser learns this paragraph's height at paint time. With pretext it's reserved before paint, so nothing below it jumps when the webfont swaps or content fills in late.</p>
+          </div>
+          <div class="pg-demo">
+            <div class="pg-label">width — shrink-wraps to content</div>
+            <button data-pretext data-pretext-mode="width" class="pg-bubble">Buy now</button>
+            <button data-pretext data-pretext-mode="width" class="pg-bubble">Add to cart — limited time</button>
+          </div>
+          <div class="pg-demo">
+            <div class="pg-label">none — event/API only, no inline style</div>
+            <p data-pretext data-pretext-mode="none" id="pg-none">Subscribe in JS via the <code>pretext:measured</code> event.</p>
+            <pre class="pg-readout" id="pg-none-readout">waiting for measurement…</pre>
+          </div>
+          <div class="pg-demo">
+            <div class="pg-label">lines — style by wrapped-line count</div>
+            <div class="pg-resizable" id="pg-lines-host"></div>
+            <p class="pg-hint">↘ drag the corner — the headline restyles by line count</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Measurement chips -->
+      <section class="pg-section">
+        <h2>Measurement chips</h2>
+        <p>The <code>pretext:measured</code> event, surfaced as inline chips (<code>naturalWidth · height · lineCount</code>).</p>
+        <button type="button" id="pg-chips-toggle" data-active="0">📏 Show measurements</button>
+        <div class="feed" id="pg-chips-feed"></div>
+      </section>
+
+      <!-- Fonts -->
+      <section class="pg-section">
+        <h2>Webfont swap</h2>
+        <p>Switching a typeface re-measures every marked element on <code>document.fonts.ready</code>.</p>
+        <div class="pg-fonts">
+          <label>sans <select id="pg-font-sans"></select></label>
+          <label>serif <select id="pg-font-serif"></select></label>
+          <label>mono <select id="pg-font-mono"></select></label>
+        </div>
+        <div class="feed" id="pg-fonts-feed"></div>
+      </section>
+
+      <!-- Per-element attributes -->
+      <section class="pg-section">
+        <h2>Per-element attributes</h2>
+        <pre class="snippet"><code>&lt;p data-pretext data-pretext-text="Loading post body…"&gt;&lt;/p&gt;
+&lt;pre data-pretext data-pretext-white-space="pre-wrap"&gt;{{raw}}&lt;/pre&gt;
+&lt;p data-pretext data-pretext-word-break="keep-all" lang="ja"&gt;…&lt;/p&gt;
+&lt;p data-pretext data-pretext-apply-styles="false"&gt;…&lt;/p&gt;
+&lt;h2 data-pretext data-pretext-no-settle&gt;…&lt;/h2&gt;</code></pre>
+      </section>
     </main>
+
     <script type="module" src="/src/playground.ts"></script>
   </body>
 </html>
